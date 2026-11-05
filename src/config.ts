@@ -18,7 +18,7 @@ export const CACHE_FILE = path.join(CACHE_DIR, 'cache.json');
 
 export function defaultConfig(): Code2docConfig {
   return {
-    include: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
+    include: ['**/*.{ts,tsx,js,jsx,mjs,cjs,java}'],
     exclude: [
       'node_modules/**',
       'dist/**',

@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
-import { FINGERPRINT_HEX } from './types.js';
-import type { Extractor, Fingerprint, Span, SymbolKind, SymbolRecord } from './types.js';
+import { fingerprintOf, spanOf } from './fingerprint.js';
+import type { CommentRange } from './fingerprint.js';
+import type { Extractor, Span, SymbolKind, SymbolRecord } from './types.js';
 
 /**
  * TS/JS extractor built on web-tree-sitter (WASM) with the official
@@ -95,43 +95,6 @@ const DECL_SHAPES: Record<string, DeclShape> = {
   enum_declaration: wholeNode('enum'),
 };
 
-function spanOf(node: SyntaxNode): Span {
-  return {
-    start: node.startIndex,
-    end: node.endIndex,
-    row: node.startPosition.row,
-    col: node.startPosition.column,
-  };
-}
-
-/** Sortable byte range of a comment node. */
-type CommentRange = [start: number, end: number];
-
-/**
- * Hash input for a span: comment ranges cut at AST granularity (a regex
- * would misfire on `//` inside string literals), then whitespace runs
- * collapsed to single spaces. Both keep comment-only and reflow-only
- * edits from producing false Drift signals (T2's no-false-signal
- * criterion) while keeping single-space differences — inside string
- * literals especially — significant, so real changes are never missed.
- */
-function spanText(bytes: Buffer, start: number, end: number, comments: CommentRange[]): string {
-  const parts: string[] = [];
-  let cursor = start;
-  for (const [cs, ce] of comments) {
-    if (ce <= cursor) continue;
-    if (cs >= end) break;
-    if (cs > cursor) parts.push(bytes.toString('utf8', cursor, cs));
-    cursor = Math.max(ce, cursor);
-  }
-  if (cursor < end) parts.push(bytes.toString('utf8', cursor, end));
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
-}
-
-function hash(text: string): string {
-  return createHash('sha1').update(text).digest('hex').slice(0, FINGERPRINT_HEX);
-}
-
 function makeRecord(
   code: Buffer,
   decl: SyntaxNode,
@@ -149,10 +112,6 @@ function makeRecord(
     col: sigStart.startPosition.column,
   };
   const body = spanOf(shape.body(decl));
-  const fingerprint: Fingerprint = {
-    signature: hash(spanText(code, signature.start, signature.end, comments)),
-    body: hash(spanText(code, body.start, body.end, comments)),
-  };
   return {
     id: `${file}#${name}@${signature.row}`,
     name,
@@ -161,7 +120,7 @@ function makeRecord(
     signature,
     body,
     visibility,
-    fingerprint,
+    fingerprint: fingerprintOf(code, signature, body, comments),
   };
 }
 
