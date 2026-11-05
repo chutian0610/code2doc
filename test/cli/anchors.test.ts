@@ -1,44 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, cpSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const bin = path.join(repoRoot, 'dist/cli.js');
-const fixture = path.join(repoRoot, 'test/fixtures/sample-ts');
-
-interface Sym {
-  file: string;
-  name: string;
-  fingerprint: { signature: string; body: string };
-}
-
-let built = false;
-
-function copyFixture(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'code2doc-anchor-'));
-  cpSync(fixture, dir, { recursive: true });
-  return dir;
-}
-
-function run(args: string[], cwd: string): { stdout: string; code: number } {
-  if (!built) throw new Error('build first');
-  try {
-    const stdout = execFileSync(process.execPath, [bin, ...args], { cwd, encoding: 'utf8' });
-    return { stdout, code: 0 };
-  } catch (err) {
-    const e = err as { stdout?: string; status?: number; code?: number };
-    return { stdout: e.stdout ?? '', code: e.status ?? e.code ?? 1 };
-  }
-}
-
-/** The anchor an Operator writes from an init report symbol. */
-function anchorLink(sym: Sym): string {
-  const { signature, body } = sym.fingerprint;
-  return `[${sym.name}](../${sym.file} "c2d:${sym.file}#${sym.name}:${signature}.${body}")`;
-}
+import { anchorLink, buildCli, copyFixture, run, tsFixture } from './helpers';
+import type { Sym } from './helpers';
 
 interface Page {
   path: string;
@@ -67,9 +31,11 @@ function setupWithPage(dir: string, symbolNames: string[], extraMarkdown = ''): 
     `# src module\n\n${body}\n${extraMarkdown}\n`,
     'utf8',
   );
+  // A reference page: anchor freshness is this suite's subject, and module
+  // pages additionally enforce export coverage (T4) — keep the two apart.
   writeFileSync(
     path.join(dir, 'docs', 'manifest.json'),
-    JSON.stringify({ pages: [{ path: 'module.md', type: 'module', module: 'src' }] }, null, 2),
+    JSON.stringify({ pages: [{ path: 'module.md', type: 'reference' }] }, null, 2),
     'utf8',
   );
   return chosen as Sym[];
@@ -99,13 +65,10 @@ function greetSrc(greet: string): string {
 }
 
 describe('code2doc anchor verification (T2)', () => {
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
-    built = true;
-  });
+  beforeAll(buildCli);
 
   it('fresh: matching fingerprints exit 0, every anchor listed as fresh', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     const symbols = setupWithPage(dir, ['greet', 'Greeter']);
 
     const { code, stdout } = run(['status', '--json'], dir);
@@ -126,7 +89,7 @@ describe('code2doc anchor verification (T2)', () => {
   });
 
   it('default output is human-readable and lists stale anchors with reasons', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet']);
     writeSource(dir, greetSrc(GREET.replace("'hello '", "'hi '")));
 
@@ -139,7 +102,7 @@ describe('code2doc anchor verification (T2)', () => {
   });
 
   it('body edit flips the anchor to drift and exits 1', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet', 'Greeter']);
     writeSource(dir, greetSrc(GREET.replace("'hello '", "'hi '")));
 
@@ -156,7 +119,7 @@ describe('code2doc anchor verification (T2)', () => {
   });
 
   it('changing only a string literal inside the body still signals drift', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet']);
     // 'hello ' -> 'hello': a single space inside a string is a real change
     writeSource(dir, greetSrc(GREET.replace("'hello '", "'hello'")));
@@ -169,7 +132,7 @@ describe('code2doc anchor verification (T2)', () => {
   });
 
   it('signature edit flips the anchor to broken and exits 2', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet']);
     writeSource(dir, greetSrc(GREET.replace('(name: string)', '(name: string, prefix: string)')));
 
@@ -181,7 +144,7 @@ describe('code2doc anchor verification (T2)', () => {
   });
 
   it('deleting the symbol flips the anchor to broken (symbol gone), exit 2', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet']);
     writeSource(dir, `${GREETER}\n`);
 
@@ -193,7 +156,7 @@ describe('code2doc anchor verification (T2)', () => {
   });
 
   it('deleting the whole file reports every anchor in it as symbol gone', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet', 'Greeter']);
     rmSync(path.join(dir, 'src', 'greet.ts'));
 
@@ -205,7 +168,7 @@ describe('code2doc anchor verification (T2)', () => {
   });
 
   it('comment and reflow-only edits keep the anchor fresh, exit 0', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet']);
     // same semantics: comments, blank lines, re-indentation, row shift
     writeSource(
@@ -227,7 +190,7 @@ export function greet(name: string): string {
   });
 
   it('a page with one broken and one drift anchor reports broken (worst wins), exit 2', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet', 'Greeter']);
     writeSource(
       dir,
@@ -243,7 +206,7 @@ export function greet(name: string): string {
   });
 
   it('markdown links without a c2d title are ordinary links, not anchors', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet'], '\n[README](README.md "ordinary title") and [bare](README.md)\n');
 
     const { code, stdout } = run(['status', '--json'], dir);
@@ -252,7 +215,7 @@ export function greet(name: string): string {
   });
 
   it('a manifest page with no file on disk is reported broken, exit 2', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     run(['init'], dir);
     writeFileSync(
       path.join(dir, 'docs', 'manifest.json'),
@@ -269,7 +232,7 @@ export function greet(name: string): string {
   });
 
   it('discards a cache from a foreign fingerprint algorithm and rebuilds', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     setupWithPage(dir, ['greet']);
 
     // Forge a stale cache: correct file hashes (so reuse would trigger)

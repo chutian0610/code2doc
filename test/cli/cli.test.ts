@@ -1,42 +1,14 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, cpSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const bin = path.join(repoRoot, 'dist/cli.js');
-const fixture = path.join(repoRoot, 'test/fixtures/sample-ts');
-
-let built = false;
-
-/** Copy the pristine fixture into a temp dir so init can write freely. */
-function copyFixture(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'code2doc-'));
-  cpSync(fixture, dir, { recursive: true });
-  return dir;
-}
-
-function run(args: string[], cwd: string): { stdout: string; code: number } {
-  if (!built) throw new Error('build first');
-  try {
-    const stdout = execFileSync(process.execPath, [bin, ...args], { cwd, encoding: 'utf8' });
-    return { stdout, code: 0 };
-  } catch (err) {
-    const e = err as { stdout?: string; status?: number; code?: number };
-    return { stdout: e.stdout ?? '', code: e.status ?? e.code ?? 1 };
-  }
-}
+import { buildCli, copyFixture, run, tsFixture } from './helpers';
 
 describe('code2doc CLI', () => {
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
-    built = true;
-  });
+  beforeAll(buildCli);
 
   it('init creates config, empty manifest, doc skeleton and a symbol cache', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-');
     const { code, stdout } = run(['init'], dir);
     expect(code).toBe(0);
 
@@ -57,7 +29,7 @@ describe('code2doc CLI', () => {
   });
 
   it('init reports discovered modules and public symbols as JSON', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-');
     const { stdout } = run(['init'], dir);
     const report = JSON.parse(stdout);
 
@@ -76,7 +48,7 @@ describe('code2doc CLI', () => {
   });
 
   it('init appends the cache dir to .gitignore without clobbering it', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-');
     run(['init'], dir);
     const gitignore = readFileSync(path.join(dir, '.gitignore'), 'utf8');
     expect(gitignore).toContain('node_modules/');
@@ -84,7 +56,7 @@ describe('code2doc CLI', () => {
   });
 
   it('skips files whose language has no extractor, via the include config', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-');
     run(['init'], dir);
     // widen include past the registry: the .java fixture must be skipped
     const configFile = path.join(dir, 'code2doc.config.json');
@@ -98,7 +70,7 @@ describe('code2doc CLI', () => {
   });
 
   it('status with no pages exits 0 and reports all-accurate (JSON)', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-');
     run(['init'], dir);
     const { code, stdout } = run(['status', '--json'], dir);
     expect(code).toBe(0);
@@ -108,7 +80,7 @@ describe('code2doc CLI', () => {
   });
 
   it('status prints a human-readable line when --json is absent', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-');
     run(['init'], dir);
     const { code, stdout } = run(['status'], dir);
     expect(code).toBe(0);
@@ -117,7 +89,7 @@ describe('code2doc CLI', () => {
   });
 
   it('status rebuilds the cache from scratch, with identical content, when it is missing', () => {
-    const dir = copyFixture();
+    const dir = copyFixture(tsFixture, 'code2doc-');
     const first = JSON.parse(run(['init'], dir).stdout);
     const before = JSON.parse(readFileSync(path.join(dir, '.code2doc', 'cache.json'), 'utf8'));
 

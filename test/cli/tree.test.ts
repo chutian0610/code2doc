@@ -1,37 +1,14 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const bin = path.join(repoRoot, 'dist/cli.js');
-const tsFixture = path.join(repoRoot, 'test/fixtures/sample-ts');
-const docsFixture = path.join(repoRoot, 'test/fixtures/sample-docs');
-
-let built = false;
-
-function copyFixture(fixture: string): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'code2doc-tree-'));
-  cpSync(fixture, dir, { recursive: true });
-  return dir;
-}
-
-function run(args: string[], cwd: string): { stdout: string; stderr: string; code: number } {
-  if (!built) throw new Error('build first');
-  try {
-    const stdout = execFileSync(process.execPath, [bin, ...args], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return { stdout, stderr: '', code: 0 };
-  } catch (err) {
-    const e = err as { stdout?: string; stderr?: string; status?: number; code?: number };
-    return { stdout: e.stdout ?? '', stderr: e.stderr ?? '', code: e.status ?? e.code ?? 1 };
-  }
-}
+import {
+  buildCli,
+  copyFixture,
+  declarePages,
+  docsFixture,
+  run,
+  tsFixture,
+  writePage,
+} from './helpers';
 
 interface Page {
   path: string;
@@ -46,19 +23,9 @@ function pages(stdout: string): Page[] {
 }
 
 /** init the plain TS fixture, then declare pages as the Operator would. */
-function declarePages(dir: string, entries: unknown[]): void {
+function initAndDeclare(dir: string, entries: unknown[]): void {
   run(['init'], dir);
-  writeFileSync(
-    path.join(dir, 'docs', 'manifest.json'),
-    JSON.stringify({ pages: entries }, null, 2),
-    'utf8',
-  );
-}
-
-function writePage(dir: string, file: string, markdown: string): void {
-  const abs = path.join(dir, 'docs', file);
-  mkdirSync(path.dirname(abs), { recursive: true });
-  writeFileSync(abs, markdown, 'utf8');
+  declarePages(dir, entries);
 }
 
 /** A working anchor for `greet`, lifted from the init report. */
@@ -70,13 +37,10 @@ function greetAnchor(dir: string): string {
 }
 
 describe('code2doc manifest-driven doc tree (T3)', () => {
-  beforeAll(() => {
-    execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'pipe' });
-    built = true;
-  });
+  beforeAll(buildCli);
 
   it('the multi-type fixture demos a fresh tree with all five page types', () => {
-    const dir = copyFixture(docsFixture);
+    const dir = copyFixture(docsFixture, 'code2doc-tree-');
     run(['init'], dir);
 
     const { code, stdout } = run(['status', '--json'], dir);
@@ -94,7 +58,7 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
   });
 
   it('default output is a per-page freshness table of the whole tree', () => {
-    const dir = copyFixture(docsFixture);
+    const dir = copyFixture(docsFixture, 'code2doc-tree-');
     run(['init'], dir);
 
     const { code, stdout } = run(['status'], dir);
@@ -109,7 +73,7 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
   });
 
   it('undeclared files in the doc tree are ignored', () => {
-    const dir = copyFixture(docsFixture);
+    const dir = copyFixture(docsFixture, 'code2doc-tree-');
     run(['init'], dir);
 
     const { stdout } = run(['status', '--json'], dir);
@@ -119,9 +83,9 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
   });
 
   it('a doc-to-doc link to a missing target is reported broken, exit 2', () => {
-    const dir = copyFixture(tsFixture);
+    const dir = copyFixture(tsFixture, 'code2doc-tree-');
     const anchor = greetAnchor(dir);
-    declarePages(dir, [
+    initAndDeclare(dir, [
       { path: 'overview.md', type: 'overview' },
       { path: 'old-name.md', type: 'howto' },
     ]);
@@ -147,9 +111,9 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
   });
 
   it('a doc link to an existing page is fresh; subdirectory targets resolve', () => {
-    const dir = copyFixture(tsFixture);
+    const dir = copyFixture(tsFixture, 'code2doc-tree-');
     const anchor = greetAnchor(dir);
-    declarePages(dir, [
+    initAndDeclare(dir, [
       { path: 'overview.md', type: 'overview' },
       { path: 'howtos/greet.md', type: 'howto' },
     ]);
@@ -166,9 +130,9 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
   });
 
   it('links outside the doc tree, external URLs, fragments and images are not checked', () => {
-    const dir = copyFixture(tsFixture);
+    const dir = copyFixture(tsFixture, 'code2doc-tree-');
     const anchor = greetAnchor(dir);
-    declarePages(dir, [{ path: 'overview.md', type: 'overview' }]);
+    initAndDeclare(dir, [{ path: 'overview.md', type: 'overview' }]);
     writePage(
       dir,
       'overview.md',
@@ -181,11 +145,11 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
   });
 
   it('a link that leaves and re-enters the doc tree resolves like a renderer would', () => {
-    const dir = copyFixture(tsFixture);
+    const dir = copyFixture(tsFixture, 'code2doc-tree-');
     const anchor = greetAnchor(dir);
-    declarePages(dir, [
+    initAndDeclare(dir, [
       { path: 'overview.md', type: 'overview' },
-      { path: 'modules/greet.md', type: 'module' },
+      { path: 'modules/greet.md', type: 'module', module: 'src' },
     ]);
     writePage(dir, 'overview.md', `# Overview\n\n${anchor}\n`);
     // from docs/modules/, ../../docs/overview.md exits the tree to the repo
@@ -211,12 +175,12 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
   });
 
   it('an anchor whose URL points nowhere is still fresh — the URL is never parsed', () => {
-    const dir = copyFixture(tsFixture);
+    const dir = copyFixture(tsFixture, 'code2doc-tree-');
     run(['init'], dir);
     const report = JSON.parse(run(['init'], dir).stdout);
     const greet = report.symbols.find((s: { name: string }) => s.name === 'greet');
     const { signature, body } = greet.fingerprint;
-    declarePages(dir, [{ path: 'overview.md', type: 'overview' }]);
+    initAndDeclare(dir, [{ path: 'overview.md', type: 'overview' }]);
     writePage(
       dir,
       'overview.md',
@@ -229,8 +193,8 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
   });
 
   it('an unknown page type in the manifest fails the tool (exit 3), pointing at the page', () => {
-    const dir = copyFixture(tsFixture);
-    declarePages(dir, [{ path: 'overview.md', type: 'tutorial' }]);
+    const dir = copyFixture(tsFixture, 'code2doc-tree-');
+    initAndDeclare(dir, [{ path: 'overview.md', type: 'tutorial' }]);
 
     const { code, stdout, stderr } = run(['status', '--json'], dir);
     expect(code).toBe(3);

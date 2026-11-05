@@ -3,6 +3,7 @@ import path from 'node:path';
 import { CACHE_DIR, CONFIG_FILE, defaultConfig, loadConfig, saveConfig } from '../config.js';
 import { allSymbols, saveCache, scan } from '../cache.js';
 import { emptyManifest, loadManifest, manifestPath, saveManifest } from '../manifest.js';
+import { dirOf } from '../paths.js';
 import type { SymbolRecord } from '../extractor/types.js';
 
 export interface ModuleReport {
@@ -48,6 +49,10 @@ The URL stays a normal, clickable markdown link for Readers.
 current code: signature changed or symbol gone → **broken**; body changed →
 **drift**; still matching → fresh.
 
+**module** pages also declare the source directory they document
+(\`"module": "src"\`); a public export of that module with no anchor on the
+page is reported as **missing** — internal symbols never count.
+
 Ordinary links between pages are checked too: a doc-to-doc link whose
 target file is missing is reported as broken. Files in this tree that the
 manifest does not declare are ignored.
@@ -67,10 +72,6 @@ function ensureGitignore(root: string): void {
 
 function moduleReports(symbols: SymbolRecord[], files: string[]): ModuleReport[] {
   const byDir = new Map<string, ModuleReport>();
-  const dirOf = (file: string): string => {
-    const idx = file.lastIndexOf('/');
-    return idx === -1 ? '.' : file.slice(0, idx);
-  };
   for (const file of files) {
     const dir = dirOf(file);
     const mod = byDir.get(dir) ?? { dir, files: 0, publicSymbols: [], internalCount: 0 };
