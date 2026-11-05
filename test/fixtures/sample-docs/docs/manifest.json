@@ -1,0 +1,9 @@
+{
+  "pages": [
+    { "path": "overview.md", "type": "overview" },
+    { "path": "modules/greet.md", "type": "module", "module": "src" },
+    { "path": "flows/greeting.md", "type": "flow" },
+    { "path": "howtos/greet-a-user.md", "type": "howto" },
+    { "path": "reference/symbols.md", "type": "reference" }
+  ]
+}

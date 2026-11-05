@@ -6,6 +6,7 @@ import { CACHE_FILE } from './config.js';
 import type { Code2docConfig } from './config.js';
 import { extractorForFile } from './extractor/registry.js';
 import type { SymbolRecord } from './extractor/types.js';
+import { toPosix } from './paths.js';
 
 /** Derived state: file hashes + extracted symbols. Rebuildable at any time. */
 export interface CacheData {
@@ -20,8 +21,6 @@ export interface CacheData {
 export function fileHash(content: string): string {
   return createHash('sha1').update(content).digest('hex');
 }
-
-const toPosix = (p: string): string => p.split(path.sep).join('/');
 
 /**
  * Parse every included file and build the symbol index. File-level
