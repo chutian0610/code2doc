@@ -40,6 +40,17 @@ export function validateManifest(manifest: Manifest): Manifest {
         `manifest: unknown type ${JSON.stringify(page.type)} for ${page.path} (expected one of ${PAGE_TYPES.join(', ')})`,
       );
     }
+    if (page.type === 'module') {
+      if (typeof page.module !== 'string' || page.module === '') {
+        throw new Error(
+          `manifest: module page ${page.path} needs a non-empty "module" — the source directory it documents`,
+        );
+      }
+    } else if (page.module !== undefined) {
+      throw new Error(
+        `manifest: "module" is only for module pages — ${page.path} is a ${page.type} page`,
+      );
+    }
   }
   return manifest;
 }
