@@ -5,7 +5,9 @@ import type { AnchorReason, AnchorState } from '../anchors.js';
 import { loadCache, saveCache, scan } from '../cache.js';
 import type { CacheData } from '../cache.js';
 import { CACHE_DIR, loadConfig } from '../config.js';
-import { loadManifest, emptyManifest } from '../manifest.js';
+import { checkDocLink, parseDocLinks } from '../links.js';
+import type { LinkReason, LinkState } from '../links.js';
+import { loadManifest, emptyManifest, validateManifest } from '../manifest.js';
 import type { PageEntry, PageType } from '../manifest.js';
 
 /** A page's state is the worst state among its anchors ('fresh' == Accurate). */
@@ -20,12 +22,24 @@ export interface AnchorReport {
   line: number;
 }
 
+export interface LinkReport {
+  /** Link target exactly as written in the page. */
+  target: string;
+  /** Resolved doc-tree-relative path. */
+  resolved: string;
+  state: LinkState;
+  reason: LinkReason;
+  /** 1-based line of the link within the page. */
+  line: number;
+}
+
 export interface PageReport {
   /** Path relative to docRoot, as declared in the manifest. */
   path: string;
   type: PageType;
   state: PageState;
   anchors: AnchorReport[];
+  links: LinkReport[];
   /** Present when the page itself could not be checked. */
   note?: string;
 }
@@ -35,7 +49,7 @@ export interface StatusReport {
   summary: { broken: number; drift: number; missing: number };
 }
 
-/** Worst anchor state wins: broken > drift > fresh. */
+/** Worst state wins: broken > drift > fresh. Links share the ladder. */
 function worstState(states: PageState[]): PageState {
   if (states.includes('broken')) return 'broken';
   if (states.includes('drift')) return 'drift';
@@ -48,7 +62,14 @@ function reportPage(entry: PageEntry, root: string, docRoot: string, cache: Cach
   try {
     markdown = readFileSync(abs, 'utf8');
   } catch {
-    return { path: entry.path, type: entry.type, state: 'broken', anchors: [], note: 'page file missing' };
+    return {
+      path: entry.path,
+      type: entry.type,
+      state: 'broken',
+      anchors: [],
+      links: [],
+      note: 'page file missing',
+    };
   }
   const anchors = parseAnchors(markdown).map((anchor) => {
     const check = checkAnchor(anchor, cache);
@@ -59,35 +80,63 @@ function reportPage(entry: PageEntry, root: string, docRoot: string, cache: Cach
       line: anchor.line,
     };
   });
+  const links = parseDocLinks(markdown, entry.path, docRoot).map((link) => ({
+    target: link.target,
+    resolved: link.resolved,
+    ...checkDocLink(link, root, docRoot),
+    line: link.line,
+  }));
   return {
     path: entry.path,
     type: entry.type,
-    state: worstState(anchors.map((a) => a.state)),
+    state: worstState([...anchors, ...links].map((r) => r.state)),
     anchors,
+    links,
   };
 }
 
-function humanLines(report: StatusReport, docRoot: string): string[] {
+/** Default output: one freshness line per declared page — the whole tree at a glance. */
+function tableLines(report: StatusReport, docRoot: string): string[] {
+  const lines: string[] = [];
+  if (report.pages.length === 0) return lines;
+  lines.push(`${'STATE'.padEnd(7)} ${'TYPE'.padEnd(11)}PAGE`);
+  for (const page of report.pages) {
+    lines.push(`${page.state.padEnd(7)} ${page.type.padEnd(11)}${path.join(docRoot, page.path)}`);
+  }
+  return lines;
+}
+
+/** Drill-down: every stale anchor, broken doc link and missing page, with reasons. */
+function detailLines(report: StatusReport, docRoot: string): string[] {
   const lines: string[] = [];
   for (const page of report.pages) {
-    lines.push(`${page.state.padEnd(7)} ${path.join(docRoot, page.path)} (${page.type})`);
-    for (const anchor of page.anchors) {
-      if (anchor.state === 'fresh') continue;
+    const staleAnchors = page.anchors.filter((a) => a.state !== 'fresh');
+    const brokenLinks = page.links.filter((l) => l.state !== 'fresh');
+    if (staleAnchors.length === 0 && brokenLinks.length === 0 && !page.note) continue;
+    lines.push('');
+    lines.push(`${path.join(docRoot, page.path)} (${page.type})`);
+    for (const anchor of staleAnchors) {
       lines.push(`  ${anchor.state.padEnd(7)} ${anchor.symbol} — ${anchor.reason}`);
+    }
+    for (const link of brokenLinks) {
+      lines.push(`  ${link.state.padEnd(7)} ${link.target} — ${link.reason}`);
     }
     if (page.note) lines.push(`  ${page.note}`);
   }
+  return lines;
+}
+
+function summaryLine(report: StatusReport): string {
   const { broken, drift } = report.summary;
   const total = report.pages.length;
   const fresh = total - broken - drift;
   if (total === 0) {
-    lines.push(`0 pages, all accurate. Cache in ${CACHE_DIR}/, rebuildable at any time.`);
-  } else if (broken === 0 && drift === 0) {
-    lines.push(`\n${total} pages: all accurate.`);
-  } else {
-    lines.push(`\n${total} pages: ${broken} broken, ${drift} drift, ${fresh} fresh.`);
+    return `0 pages, all accurate. Cache in ${CACHE_DIR}/, rebuildable at any time.`;
   }
-  return lines;
+  if (broken === 0 && drift === 0) {
+    return `${total} pages: all accurate.`;
+  }
+  return `${total} pages: ${broken} broken, ${drift} drift, ${fresh} fresh.`;
 }
 
 export async function runStatus(root: string, args: string[]): Promise<number> {
@@ -101,7 +150,7 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
   const cache = await scan(root, config, loadCache(root));
   saveCache(root, cache);
 
-  const manifest = loadManifest(root, config.docRoot) ?? emptyManifest();
+  const manifest = validateManifest(loadManifest(root, config.docRoot) ?? emptyManifest());
   const pages = manifest.pages.map((entry) =>
     reportPage(entry, root, config.docRoot, cache),
   );
@@ -117,7 +166,14 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
   if (json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
-    for (const line of humanLines(report, config.docRoot)) console.log(line);
+    for (const line of [
+      ...tableLines(report, config.docRoot),
+      ...detailLines(report, config.docRoot),
+      '',
+      summaryLine(report),
+    ]) {
+      console.log(line);
+    }
   }
   if (report.summary.broken > 0) return 2;
   if (report.summary.drift > 0) return 1;

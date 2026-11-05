@@ -45,6 +45,10 @@ A public symbol with zero anchors in its module's page — the doc-gap signal, r
 **Manifest**:
 The declared list of pages that should exist. Planned by the operator at init, evolved as the code changes.
 
+**Doc link**:
+An ordinary markdown link from one page to another page of the doc tree. Checked for target existence only: a missing target is reported as Broken, like any stale claim. Anchor URLs are never existence-checked.
+_Avoid_: dead link
+
 **How-to**:
 A page born from a user question, distilled by the operator into anchored markdown. A first-class page: it goes stale like any other.
 _Avoid_: FAQ, answer, tutorial

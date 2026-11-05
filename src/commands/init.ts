@@ -48,6 +48,10 @@ The URL stays a normal, clickable markdown link for Readers.
 current code: signature changed or symbol gone → **broken**; body changed →
 **drift**; still matching → fresh.
 
+Ordinary links between pages are checked too: a doc-to-doc link whose
+target file is missing is reported as broken. Files in this tree that the
+manifest does not declare are ignored.
+
 Run \`code2doc status\` to see the freshness of every declared page.
 `;
 
