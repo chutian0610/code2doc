@@ -1,0 +1,32 @@
+{
+  "name": "@chutian0610/code2doc",
+  "version": "0.1.0",
+  "description": "Model-free CLI that lets AI code agents maintain a living, symbol-anchored doc tree for a codebase",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "code2doc": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "tinyglobby": "^0.2.17",
+    "tree-sitter-typescript": "^0.23.2",
+    "web-tree-sitter": "^0.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
