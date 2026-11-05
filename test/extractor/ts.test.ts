@@ -104,3 +104,73 @@ export const answer = 42;
     expect(text(code, fn!.body)).toContain('a + b');
   });
 });
+
+describe('fingerprint invariance (T2: no false signals)', () => {
+  const BASE = `export function greet(name: string): string {
+  return 'hello ' + name;
+}
+`;
+  const extractOne = async (code: string) => {
+    const symbols = await createTsExtractor().extract(code, 'src/greet.ts');
+    return symbols.find((s) => s.name === 'greet')!;
+  };
+
+  it('ignores comments inside the body', async () => {
+    const commented = `export function greet(name: string): string {
+  // enthusiastic greeting
+  return /* inline */ 'hello ' + name;
+}
+`;
+    const [a, b] = await Promise.all([extractOne(BASE), extractOne(commented)]);
+    expect(b.fingerprint.signature).toBe(a.fingerprint.signature);
+    expect(b.fingerprint.body).toBe(a.fingerprint.body);
+  });
+
+  it('ignores comments inside the signature', async () => {
+    const commented = `export function greet(name: /* the person */ string): string {
+  return 'hello ' + name;
+}
+`;
+    const [a, b] = await Promise.all([extractOne(BASE), extractOne(commented)]);
+    expect(b.fingerprint.signature).toBe(a.fingerprint.signature);
+  });
+
+  it('ignores whitespace-only reflow (indentation, line breaks, space runs)', async () => {
+    const reformatted = `export function greet(name: string): string {
+      return
+          'hello '   +   name;
+}\n`;
+    const [a, b] = await Promise.all([extractOne(BASE), extractOne(reformatted)]);
+    expect(b.fingerprint.signature).toBe(a.fingerprint.signature);
+    expect(b.fingerprint.body).toBe(a.fingerprint.body);
+  });
+
+  it('keeps single-space differences significant, including inside strings', async () => {
+    const edited = `export function greet(name: string): string {
+  return 'hello' + name;
+}
+`;
+    const [a, b] = await Promise.all([extractOne(BASE), extractOne(edited)]);
+    expect(b.fingerprint.body).not.toBe(a.fingerprint.body);
+  });
+
+  it('still changes when the body actually changes', async () => {
+    const edited = `export function greet(name: string): string {
+  return 'hi ' + name;
+}
+`;
+    const [a, b] = await Promise.all([extractOne(BASE), extractOne(edited)]);
+    expect(b.fingerprint.signature).toBe(a.fingerprint.signature);
+    expect(b.fingerprint.body).not.toBe(a.fingerprint.body);
+  });
+
+  it('still changes the signature fingerprint when the signature changes', async () => {
+    const edited = `export function greet(name: string, prefix: string): string {
+  return 'hello ' + name;
+}
+`;
+    const [a, b] = await Promise.all([extractOne(BASE), extractOne(edited)]);
+    expect(b.fingerprint.signature).not.toBe(a.fingerprint.signature);
+    expect(b.fingerprint.body).toBe(a.fingerprint.body);
+  });
+});

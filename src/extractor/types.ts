@@ -26,11 +26,14 @@ export interface Span {
 
 export type Visibility = 'public' | 'internal';
 
+/** Truncated hex length of each fingerprint hash (anchor payloads embed it). */
+export const FINGERPRINT_HEX = 16;
+
 /** The identity of a symbol as an anchor target: a pair of hashes. */
 export interface Fingerprint {
-  /** sha1 over the signature bytes (whitespace-collapsed, truncated hex). */
+  /** sha1 over the signature text (comments cut, whitespace stripped). */
   signature: string;
-  /** sha1 over the body bytes (whitespace-collapsed, truncated hex). */
+  /** sha1 over the body text (comments cut, whitespace stripped). */
   body: string;
 }
 

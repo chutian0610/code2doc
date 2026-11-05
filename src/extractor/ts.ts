@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
+import { FINGERPRINT_HEX } from './types.js';
 import type { Extractor, Fingerprint, Span, SymbolKind, SymbolRecord } from './types.js';
 
 /**
@@ -37,6 +38,9 @@ const QUERY = `
   (enum_declaration name: (identifier) @name) @decl
   (lexical_declaration (variable_declarator name: (identifier) @name)) @decl
 `;
+
+/** Comment ranges are cut from hash input, in every hashed span. */
+const COMMENT_QUERY = `(comment) @comment`;
 
 /** How a declaration type maps to kind + signature/body spans. */
 interface DeclShape {
@@ -100,18 +104,32 @@ function spanOf(node: SyntaxNode): Span {
   };
 }
 
+/** Sortable byte range of a comment node. */
+type CommentRange = [start: number, end: number];
+
 /**
- * Whitespace-insensitive hash input: collapsing whitespace keeps
- * formatting-only edits from producing false Drift signals
- * (ticket T2's no-false-signal acceptance criterion).
- * Known limit: whitespace inside template literals becomes insignificant too.
+ * Hash input for a span: comment ranges cut at AST granularity (a regex
+ * would misfire on `//` inside string literals), then whitespace runs
+ * collapsed to single spaces. Both keep comment-only and reflow-only
+ * edits from producing false Drift signals (T2's no-false-signal
+ * criterion) while keeping single-space differences — inside string
+ * literals especially — significant, so real changes are never missed.
  */
-function normalize(bytes: Buffer): string {
-  return bytes.toString('utf8').replace(/\s+/g, ' ').trim();
+function spanText(bytes: Buffer, start: number, end: number, comments: CommentRange[]): string {
+  const parts: string[] = [];
+  let cursor = start;
+  for (const [cs, ce] of comments) {
+    if (ce <= cursor) continue;
+    if (cs >= end) break;
+    if (cs > cursor) parts.push(bytes.toString('utf8', cursor, cs));
+    cursor = Math.max(ce, cursor);
+  }
+  if (cursor < end) parts.push(bytes.toString('utf8', cursor, end));
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
-function hash(normalized: string): string {
-  return createHash('sha1').update(normalized).digest('hex').slice(0, 16);
+function hash(text: string): string {
+  return createHash('sha1').update(text).digest('hex').slice(0, FINGERPRINT_HEX);
 }
 
 function makeRecord(
@@ -121,6 +139,7 @@ function makeRecord(
   name: string,
   file: string,
   visibility: 'public' | 'internal',
+  comments: CommentRange[],
 ): SymbolRecord {
   const sigStart = shape.signatureStart(decl);
   const signature: Span = {
@@ -131,8 +150,8 @@ function makeRecord(
   };
   const body = spanOf(shape.body(decl));
   const fingerprint: Fingerprint = {
-    signature: hash(normalize(code.subarray(signature.start, signature.end))),
-    body: hash(normalize(code.subarray(body.start, body.end))),
+    signature: hash(spanText(code, signature.start, signature.end, comments)),
+    body: hash(spanText(code, body.start, body.end, comments)),
   };
   return {
     id: `${file}#${name}@${signature.row}`,
@@ -170,6 +189,14 @@ export function createTsExtractor(): Extractor {
       const tree = parser.parse(code);
       if (!tree) return [];
       const query = new Query(language, QUERY);
+      const commentQuery = new Query(language, COMMENT_QUERY);
+
+      const comments: CommentRange[] = [];
+      for (const { captures } of commentQuery.matches(tree.rootNode)) {
+        const node = captures.find((c) => c.name === 'comment')?.node;
+        if (node) comments.push([node.startIndex, node.endIndex]);
+      }
+      comments.sort((a, b) => a[0] - b[0]);
 
       const bytes = Buffer.from(code, 'utf8');
       const records: SymbolRecord[] = [];
@@ -183,7 +210,7 @@ export function createTsExtractor(): Extractor {
         if (!shape) continue;
         const name = code.slice(nameNode.startIndex, nameNode.endIndex);
         const visibility = decl.parent?.type === 'export_statement' ? 'public' : 'internal';
-        records.push(makeRecord(bytes, decl, shape, name, file, visibility));
+        records.push(makeRecord(bytes, decl, shape, name, file, visibility, comments));
       }
       return records;
     },
