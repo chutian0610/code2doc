@@ -58,10 +58,10 @@ describe('code2doc CLI', () => {
   it('skips files whose language has no extractor, via the include config', () => {
     const dir = copyFixture(tsFixture, 'code2doc-');
     run(['init'], dir);
-    // widen include past the registry: the .java fixture must be skipped
+    // widen include past the registry: the .py fixture must be skipped
     const configFile = path.join(dir, 'code2doc.config.json');
     const config = JSON.parse(readFileSync(configFile, 'utf8'));
-    config.include = ['**/*.{ts,tsx,js,jsx,mjs,cjs}', '**/*.java'];
+    config.include = ['**/*.{ts,tsx,js,jsx,mjs,cjs,java}', '**/*.py'];
     writeFileSync(configFile, JSON.stringify(config, null, 2), 'utf8');
 
     const { stdout } = run(['init'], dir);
