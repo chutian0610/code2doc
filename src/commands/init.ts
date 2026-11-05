@@ -36,6 +36,18 @@ Each page has a type that decides how it is checked:
 - **howto** — a task guide distilled from a user question
 - **reference** — tabular reference material
 
+## Anchors
+
+Factual claims link to the code they describe; the link title carries the
+symbol's fingerprint (from the \`symbols\` array \`code2doc init\` prints):
+
+\`[greet](../src/greet.ts "c2d:src/greet.ts#greet:<signature>.<body>")\`
+
+The URL stays a normal, clickable markdown link for Readers.
+\`code2doc status\` reads the title and verifies the fingerprint against the
+current code: signature changed or symbol gone → **broken**; body changed →
+**drift**; still matching → fresh.
+
 Run \`code2doc status\` to see the freshness of every declared page.
 `;
 
