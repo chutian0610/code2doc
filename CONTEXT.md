@@ -52,3 +52,15 @@ _Avoid_: dead link
 **How-to**:
 A page born from a user question, distilled by the operator into anchored markdown. A first-class page: it goes stale like any other.
 _Avoid_: FAQ, answer, tutorial
+
+**Ripple**:
+An indirect staleness signal: the anchored symbol's own fingerprint is unchanged, but a symbol it (transitively) calls went stale (Broken or Drift). Missing never propagates — it is a coverage signal, not a code change. Evidence weaker than Drift: review recommended, rewrite not implied.
+_Avoid_: indirect drift (dilutes Drift), cascade, secondhand
+
+**Call edge**:
+A caller→callee relation between symbols, built by name heuristics (import resolution, same-file uniqueness, global-name uniqueness) — not a resolved reference. Deliberately incomplete by design.
+_Avoid_: reference, dependency (too generic)
+
+**Blind spot**:
+A case the call-edge heuristics intentionally do not cover, where a real dependency yields no edge. Documented, not hidden: a missing edge is tolerated, a false edge never is.
+_Avoid_: limitation, bug
