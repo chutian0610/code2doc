@@ -1,0 +1,12 @@
+{
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules/**",
+    "dist/**",
+    "docs/**",
+    ".code2doc/**",
+    "**/*.d.ts"
+  ],
+  "docRoot": "docs",
+  "language": "en"
+}

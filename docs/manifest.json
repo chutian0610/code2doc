@@ -1,0 +1,10 @@
+{
+  "pages": [
+    { "path": "overview.md", "type": "overview" },
+    { "path": "modules/core.md", "type": "module", "module": "src" },
+    { "path": "modules/commands.md", "type": "module", "module": "src/commands" },
+    { "path": "modules/extractor.md", "type": "module", "module": "src/extractor" },
+    { "path": "flows/status-check.md", "type": "flow" },
+    { "path": "howtos/add-a-language.md", "type": "howto" }
+  ]
+}
