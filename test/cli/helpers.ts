@@ -28,6 +28,8 @@ export function run(
       cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      // init on a large repo prints a symbol report in the megabytes
+      maxBuffer: 64 * 1024 * 1024,
     });
     return { stdout, stderr: '', code: 0 };
   } catch (err) {

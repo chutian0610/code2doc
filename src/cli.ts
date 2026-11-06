@@ -19,9 +19,14 @@ async function main(argv: string[]): Promise<number> {
   }
 }
 
+// exitCode (never process.exit): piped stdout on macOS writes
+// asynchronously, and process.exit would truncate large reports at the
+// 64KiB kernel pipe buffer before libuv flushes them.
 main(process.argv.slice(2))
-  .then((code) => process.exit(code))
+  .then((code) => {
+    process.exitCode = code;
+  })
   .catch((err: unknown) => {
     console.error(err instanceof Error ? err.message : String(err));
-    process.exit(EXIT_FAILURE);
+    process.exitCode = EXIT_FAILURE;
   });

@@ -7,6 +7,24 @@
   "bin": {
     "code2doc": "dist/cli.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chutian0610/code2doc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/chutian0610/code2doc/issues"
+  },
+  "homepage": "https://github.com/chutian0610/code2doc#readme",
+  "keywords": [
+    "documentation",
+    "tree-sitter",
+    "cli",
+    "agent",
+    "living-documentation"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist"
   ],
