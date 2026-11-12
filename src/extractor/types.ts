@@ -37,10 +37,19 @@ export interface Fingerprint {
   body: string;
 }
 
+/** The identity key of a symbol: `<file>#<name>` — the one spelling, used by anchors, edges and reports alike. Unambiguous because names are identifiers (`[\w$]+`, never `#`) and paths never contain one. */
+export function symbolId(file: string, name: string): string {
+  return `${file}#${name}`;
+}
+
+/** Parse a symbol-identity key; the last `#` separates (paths never contain one). */
+export function parseSymbolId(key: string): { file: string; name: string } {
+  const at = key.lastIndexOf('#');
+  return { file: key.slice(0, at), name: key.slice(at + 1) };
+}
+
 /** One extracted symbol, the unit the cache stores and anchors target. */
 export interface SymbolRecord {
-  /** Stable identity: `<file>#<name>@<signature start row>` */
-  id: string;
   name: string;
   kind: SymbolKind;
   /** Repo-relative path. */

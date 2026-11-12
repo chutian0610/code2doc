@@ -10,6 +10,7 @@ import type { LinkReason, LinkState } from '../links.js';
 import { loadManifest, emptyManifest, validateManifest } from '../manifest.js';
 import type { PageEntry, PageType } from '../manifest.js';
 import { dirOf, normalizeModuleDir } from '../paths.js';
+import { symbolId } from '../extractor/types.js';
 import { buildBaseline } from '../ripple.js';
 import type { Baseline, Ripple } from '../ripple.js';
 
@@ -87,9 +88,9 @@ function missingSymbols(module: string, cache: CacheData, anchored: Set<string>)
   const dir = normalizeModuleDir(module);
   return allSymbols(cache)
     .filter(
-      (s) => s.visibility === 'public' && dirOf(s.file) === dir && !anchored.has(`${s.file}#${s.name}`),
+      (s) => s.visibility === 'public' && dirOf(s.file) === dir && !anchored.has(symbolId(s.file, s.name)),
     )
-    .map((s) => `${s.file}#${s.name}`)
+    .map((s) => symbolId(s.file, s.name))
     .sort();
 }
 
@@ -125,13 +126,13 @@ function reportPage(
     const check = checkAnchor(anchor, cache);
     // Ripple only for anchors whose own fingerprint still matches: a
     // stale anchor is reported directly, never through its callees.
-    const ripples = check.state === 'fresh' ? baseline.ripplesOf(`${anchor.file}#${anchor.name}`) : [];
+    const ripples = check.state === 'fresh' ? baseline.ripplesOf(symbolId(anchor.file, anchor.name)) : [];
     const verdict = anchorVerdict(check, ripples);
     const candidates = check.state === 'broken' && check.reason === 'symbol gone'
       ? renameCandidates(anchor, cache)
       : [];
     return {
-      symbol: `${anchor.file}#${anchor.name}`,
+      symbol: symbolId(anchor.file, anchor.name),
       state: verdict.state,
       reason: verdict.reason,
       ripples,

@@ -4,7 +4,7 @@ import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
 import { fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
 import type { Extractor, FileRefs, ImportBinding, Span, SymbolKind, SymbolRecord } from './types.js';
-import { collapseCallers, noRefs } from './types.js';
+import { collapseCallers, noRefs, symbolId } from './types.js';
 
 /**
  * Java extractor: tree-sitter-java (WASM) behind the same Extractor
@@ -192,7 +192,6 @@ function makeRecord(
   };
   const body = spanOf(bodyNode ?? decl);
   return {
-    id: `${file}#${name}@${signature.row}`,
     name,
     kind: KINDS[decl.type],
     file,
@@ -261,7 +260,7 @@ export function createJavaExtractor(): Extractor {
       const matches = index.matching(binding.source);
       if (matches.length !== 1) return undefined; // external, or ambiguous across package roots
       return index.at(matches[0])?.includes(binding.imported)
-        ? `${matches[0]}#${binding.imported}`
+        ? symbolId(matches[0], binding.imported)
         : undefined;
     },
   };

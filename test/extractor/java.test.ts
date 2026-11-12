@@ -33,7 +33,6 @@ describe('Java extractor', () => {
     const cls = symbols[0];
     expect(cls.kind).toBe('class');
     expect(cls.visibility).toBe('public');
-    expect(cls.id).toBe('src/Greeter.java#Greeter@2');
     // class signature = the header, modifiers included, body excluded
     expect(text(GREETER, cls.signature)).toContain('public class Greeter');
     expect(text(GREETER, cls.signature)).not.toContain('return');
@@ -42,7 +41,6 @@ describe('Java extractor', () => {
     const greet = symbols[1];
     expect(greet.kind).toBe('function');
     expect(greet.visibility).toBe('public');
-    expect(greet.id).toBe('src/Greeter.java#greet@3');
     // method signature covers modifiers, return type and parameters
     expect(text(GREETER, greet.signature)).toContain('public String greet(String name)');
     expect(text(GREETER, greet.signature)).not.toContain('return');

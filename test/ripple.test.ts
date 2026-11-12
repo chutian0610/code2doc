@@ -20,7 +20,6 @@ const BODY_B = 'd'.repeat(16);
 
 function sym(file: string, name: string, signature = SIG_A, body = BODY_A): SymbolRecord {
   return {
-    id: `${file}#${name}@0`,
     name,
     kind: 'function',
     file,

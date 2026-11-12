@@ -19,7 +19,7 @@ the two into a page's anchor list. Verification is
 (cache-local rows never break on line shifts), then signature mismatch →
 broken, body mismatch → drift, match → fresh. A vanished symbol gets
 advisory rename candidates from
-[renameCandidates](../../src/anchors.ts "c2d:src/anchors.ts#renameCandidates:68cb0299f7e0bf9c.a9992f5edfff5f56"):
+[renameCandidates](../../src/anchors.ts "c2d:src/anchors.ts#renameCandidates:68cb0299f7e0bf9c.1483cf33ff6cfbf2"):
 the ladder itself is
 [worse](../../src/anchors.ts "c2d:src/anchors.ts#worse:e7ac2ade00f1c7d5.6b569538f8dd70d8")
 defined once, and
@@ -53,14 +53,14 @@ coverage checks.
 
 ## `ripple.ts` — call edges and the cache baseline
 
-[resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.52175494bc651324") runs the ADR-0004
+[resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.bb07d1e890667e0e") runs the ADR-0004
 disambiguation cascade over the cached call refs — import resolution →
 same-file uniqueness → global-name uniqueness → no edge — where import
 resolution dispatches to the file's extractor (ADR-0005: the core knows
 no specifier forms), a name claimed by an import never falls through,
 and an ambiguous name yields nothing (a missing edge is tolerated, a
 false edge never is).
-[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.c5666680021b2283") diffs the previous
+[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.532478f248ce8afc") diffs the previous
 status cache into the changed set (gone or signature moved → broken,
 body moved → drift; additions are not changes), and
 [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:e191fee791497fdd.09891e4feb8a2019") propagates it:

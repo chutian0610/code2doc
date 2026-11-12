@@ -4,7 +4,7 @@ import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
 import { fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
 import type { Extractor, FileRefs, Span, SymbolKind, SymbolRecord } from './types.js';
-import { collapseCallers, noRefs } from './types.js';
+import { collapseCallers, noRefs, symbolId } from './types.js';
 
 /**
  * TS/JS extractor built on web-tree-sitter (WASM) with the official
@@ -138,7 +138,6 @@ function makeRecord(
   };
   const body = spanOf(shape.body(decl));
   return {
-    id: `${file}#${name}@${signature.row}`,
     name,
     kind: shape.kind,
     file,
@@ -279,7 +278,7 @@ export function createTsExtractor(): Extractor {
         ...EXTENSIONS.map((e) => `${stripped}/index${e}`),
       ];
       for (const candidate of candidates) {
-        if (index.at(candidate)?.includes(imported)) return `${candidate}#${imported}`;
+        if (index.at(candidate)?.includes(imported)) return symbolId(candidate, imported);
       }
       return undefined;
     },
