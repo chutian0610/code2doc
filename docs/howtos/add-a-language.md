@@ -7,7 +7,7 @@ Adding a language is config and tests, not core surgery. The steps, in
 order:
 
 1. **Implement the contract.** One file in `src/extractor/`, exporting a
-   factory returning an [Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:a88e6f5b7a76e66f.a88e6f5b7a76e66f"):
+   factory returning an [Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:9488e7e173d34bad.9488e7e173d34bad"):
    a language id, the extensions it claims, and one `extract` that
    returns [SymbolRecord](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolRecord:559164f730143ba9.559164f730143ba9")s —
    name, kind, spans, [Visibility](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Visibility:75e723b0d2e1b720.75e723b0d2e1b720")
@@ -25,8 +25,8 @@ order:
    for name collisions in `file#name` lookup — that is why Java skips
    constructors), what public means in that language, and where the
    signature ends and the body begins. References:
-   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:c15f724ca6413d99.f0e98fe360b57381") and
-   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.1ac4f3144a3b46d5").
+   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:7a398749a8408b2d.c89769dc980307b3") and
+   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.7a018b6d1f6c923d").
 
 4. **Register it.** Append the factory's instance to the registry list
    in `src/extractor/registry.ts`; dispatch is already extension-based

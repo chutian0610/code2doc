@@ -19,7 +19,7 @@ Two commands, dispatched by `src/cli.ts`:
   0/1/2.
 
 The checking machinery lives in the [core module](modules/core.md):
-[scan](../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.a6ea9cb50d1f281b") builds the symbol cache (file hashes gate
+[scan](../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.f17113f4fd26a12b") builds the symbol cache (file hashes gate
 re-parses), [checkAnchor](../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:693df525b389ace2.3f6fa8c3a096c759") compares an
 anchor's fingerprint against the cache, and
 [validateManifest](../src/manifest.ts "c2d:src/manifest.ts#validateManifest:41444e9a05a7d3f9.c59587939818b583") guards the

@@ -1,6 +1,6 @@
-import path from 'node:path';
 import type { CacheData } from './cache.js';
 import { extractorForFile } from './extractor/registry.js';
+import type { ImportIndex } from './extractor/types.js';
 
 /**
  * Ripple's engine room (ADR-0004). Two language-agnostic halves:
@@ -30,61 +30,31 @@ export interface Ripple {
   depth: number;
 }
 
-/** Extensions tried when resolving a relative import specifier to an indexed file. */
-const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
-
-/** True for repo-relative specifiers; bare package specifiers index nothing. */
-function isRelative(source: string): boolean {
-  return source.startsWith('.') || source.startsWith('/');
+/** The index probe handed to a language's resolveImport (ADR-0005). */
+function importIndex(cache: CacheData): ImportIndex {
+  const namesOf = new Map<string, readonly string[]>();
+  return {
+    at(file) {
+      if (!(file in cache.files)) return undefined;
+      let names = namesOf.get(file);
+      if (names === undefined) {
+        names = cache.files[file].symbols.map((s) => s.name);
+        namesOf.set(file, names);
+      }
+      return names;
+    },
+    matching(suffix) {
+      return Object.keys(cache.files).filter((p) => p === suffix || p.endsWith(`/${suffix}`));
+    },
+  };
 }
 
 /**
- * Resolve an import binding to an indexed `file#name`, by the form the
- * language layer normalized its source into. A relative specifier
- * (TS/JS) is read against the importing file — a known extension is
- * stripped so ESM-style `./helper.js` reaches `helper.ts`, index files
- * resolve directory imports. A package-path form (Java, `a/b/C.java`,
- * always `.java`-suffixed) matches indexed files by unique path
- * suffix, whatever the package root. Every other non-relative source —
- * a bare package specifier, which indexes nothing — is ignored, and
- * the caller must not fall through to name-based guesses: the import
- * claims the name, an external library yields no edge, not a guess.
- */
-function resolveImported(
-  cache: CacheData,
-  file: string,
-  imported: string,
-  source: string,
-): string | undefined {
-  if (!imported) return undefined;
-  if (!isRelative(source)) {
-    if (!source.endsWith('.java')) return undefined; // bare package specifier: ignored
-    const matches = Object.keys(cache.files).filter((p) => p === source || p.endsWith(`/${source}`));
-    if (matches.length !== 1) return undefined;
-    return cache.files[matches[0]].symbols.some((s) => s.name === imported)
-      ? `${matches[0]}#${imported}`
-      : undefined;
-  }
-  const base = path.posix.normalize(path.posix.join(path.posix.dirname(file), source));
-  const stripped = EXTENSIONS.some((e) => base.endsWith(e))
-    ? base.slice(0, base.lastIndexOf('.'))
-    : base;
-  const candidates = [
-    base,
-    ...EXTENSIONS.map((e) => stripped + e),
-    ...EXTENSIONS.map((e) => `${stripped}/index${e}`),
-  ];
-  for (const candidate of candidates) {
-    const symbols = cache.files[candidate]?.symbols ?? [];
-    if (symbols.some((s) => s.name === imported)) return `${candidate}#${imported}`;
-  }
-  return undefined;
-}
-
-/**
- * The cascade, per callee name in a file: import resolution → same-file
- * uniqueness → global-name uniqueness → no edge. An ambiguous name at
- * any uniqueness step yields nothing; a name claimed by an import never
+ * The disambiguation steps, per callee name in a file: import resolution → same-file
+ * uniqueness → global-name uniqueness → no edge. Import resolution is
+ * the language's own job behind the Extractor interface (ADR-0005) —
+ * the core knows no specifier forms. An ambiguous name at any
+ * uniqueness step yields nothing; a name claimed by an import never
  * falls through, whatever the import resolved to.
  */
 export function resolveEdges(cache: CacheData): EdgeMap {
@@ -113,14 +83,16 @@ export function resolveEdges(cache: CacheData): EdgeMap {
     return lang;
   };
 
+  const index = importIndex(cache);
   const edges: EdgeMap = new Map();
   for (const [file, entry] of Object.entries(cache.files)) {
+    const resolveImport = extractorForFile(file)?.resolveImport;
     for (const [caller, callees] of Object.entries(entry.refs.callers)) {
       const resolved = new Set<string>();
       for (const name of callees) {
         const binding = entry.refs.imports[name];
         if (binding) {
-          const target = resolveImported(cache, file, binding.imported, binding.source);
+          const target = resolveImport?.(file, binding, index);
           if (target) resolved.add(target);
           continue; // the import claims the name: no same-file/global fallback
         }

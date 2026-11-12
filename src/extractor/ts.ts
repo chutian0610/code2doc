@@ -12,6 +12,9 @@ import { collapseCallers, noRefs } from './types.js';
  * everything else uses the typescript grammar (a JS superset).
  */
 
+/** Extensions this extractor claims — also the import-resolution candidates (one source, ADR-0005). */
+const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
+
 const require = createRequire(import.meta.url);
 
 const TS_PKG_ROOT = path.dirname(require.resolve('tree-sitter-typescript/package.json'));
@@ -204,7 +207,7 @@ async function parseTree(code: string, file: string) {
 export function createTsExtractor(): Extractor {
   return {
     languageId: 'ts-family',
-    extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
+    extensions: EXTENSIONS,
     async extract(code, file) {
       const { language, tree } = await parseTree(code, file);
       if (!tree) return [];
@@ -247,11 +250,11 @@ export function createTsExtractor(): Extractor {
         if (spec) {
           const imported = spec.childForFieldName('name')?.text ?? '';
           const alias = spec.childForFieldName('alias')?.text ?? imported;
-          imports[alias] = { imported, source: source.text };
+          imports[alias] = { kind: 'named', imported, source: source.text };
         } else if (local) {
           // default import: the binding is claimed but unresolvable by name —
-          // the cascade must not fall through to same-file/global guesses
-          imports[local.text] = { imported: '', source: source.text };
+          // the disambiguation steps must not fall through to same-file/global guesses
+          imports[local.text] = { kind: 'default', source: source.text };
         }
       }
 
@@ -263,6 +266,22 @@ export function createTsExtractor(): Extractor {
         if (caller) (called[caller] ??= new Set<string>()).add(callee.text);
       }
       return { imports, callers: collapseCallers(called) };
+    },
+    resolveImport(file, binding, index) {
+      if (binding.kind !== 'named') return undefined; // default: claimed, unresolvable by name
+      const { imported, source } = binding;
+      if (!(source.startsWith('.') || source.startsWith('/'))) return undefined; // bare specifier: ignored
+      const base = path.posix.normalize(path.posix.join(path.posix.dirname(file), source));
+      const stripped = EXTENSIONS.some((e) => base.endsWith(e)) ? base.slice(0, base.lastIndexOf('.')) : base;
+      const candidates = [
+        base,
+        ...EXTENSIONS.map((e) => stripped + e),
+        ...EXTENSIONS.map((e) => `${stripped}/index${e}`),
+      ];
+      for (const candidate of candidates) {
+        if (index.at(candidate)?.includes(imported)) return `${candidate}#${imported}`;
+      }
+      return undefined;
     },
   };
 }

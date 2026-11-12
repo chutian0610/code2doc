@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createTsExtractor } from '../../src/extractor/ts.js';
-import type { FileRefs } from '../../src/extractor/types.js';
+import type { FileRefs, ImportBinding, ImportIndex } from '../../src/extractor/types.js';
 
 /**
  * V2-1: TS/JS call-ref extraction, pinned per ADR-0004 — captured forms
@@ -84,11 +84,11 @@ describe('TS extractor — call refs (ADR-0004)', () => {
   it('captures the import bindings the disambiguation cascade consumes', async () => {
     const { imports } = view(await createTsExtractor().extractRefs!(CODE, 'src/greet.ts'));
 
-    expect(imports.helper).toEqual({ imported: 'helper', source: './helper' });
-    expect(imports.aliased).toEqual({ imported: 'a', source: './x' }); // alias resolves to the original
-    expect(imports.def).toEqual({ imported: '', source: './other' }); // '' = default import, unresolvable by name
+    expect(imports.helper).toEqual({ kind: 'named', imported: 'helper', source: './helper' });
+    expect(imports.aliased).toEqual({ kind: 'named', imported: 'a', source: './x' }); // alias resolves to the original
+    expect(imports.def).toEqual({ kind: 'default', source: './other' }); // the sentinel is data now
     expect(imports.ns).toBeUndefined(); // namespace import: member calls resolve by identifier instead
-    expect(imports.unresolvable).toEqual({ imported: 'unresolvable', source: 'some-package' });
+    expect(imports.unresolvable).toEqual({ kind: 'named', imported: 'unresolvable', source: 'some-package' });
   });
 
   it('dedupes repeated callee names within a caller', async () => {
@@ -100,5 +100,32 @@ describe('TS extractor — call refs (ADR-0004)', () => {
 `;
     const refs = await createTsExtractor().extractRefs(code, 'src/greet.ts');
     expect(refs.callers.fn).toEqual(['helper']);
+  });
+});
+
+describe('TS extractor — resolveImport (ADR-0005)', () => {
+  /** A fake index: helper.ts, a util/index.ts barrel, and one indexed pkg/sub.js. */
+  const index: ImportIndex = {
+    at: (file) =>
+      ({ 'src/helper.ts': ['helper'], 'src/util/index.ts': ['helper'], 'src/pkg/sub.js': ['x'] })[file],
+    matching: () => [],
+  };
+  const extractor = createTsExtractor();
+  const resolve = (binding: ImportBinding) => extractor.resolveImport!('src/greet.ts', binding, index);
+
+  it('resolves relative, extension-stripped and directory-index forms with its own extensions', () => {
+    expect(resolve({ kind: 'named', imported: 'helper', source: './helper' })).toBe('src/helper.ts#helper');
+    expect(resolve({ kind: 'named', imported: 'helper', source: './helper.js' })).toBe('src/helper.ts#helper');
+    expect(resolve({ kind: 'named', imported: 'helper', source: './util' })).toBe('src/util/index.ts#helper');
+  });
+
+  it('a bare package specifier is not this language\'s form — unresolved, never a suffix guess', () => {
+    // 'pkg/sub.js' is an indexed path; a TS bare specifier still resolves nothing
+    expect(resolve({ kind: 'named', imported: 'x', source: 'pkg/sub.js' })).toBeUndefined();
+    expect(resolve({ kind: 'named', imported: 'x', source: 'some-package' })).toBeUndefined();
+  });
+
+  it('a default binding claims the name but never resolves', () => {
+    expect(resolve({ kind: 'default', source: './helper' })).toBeUndefined();
   });
 });

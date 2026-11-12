@@ -3,7 +3,7 @@ import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
 import { fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
-import type { Extractor, FileRefs, Span, SymbolKind, SymbolRecord } from './types.js';
+import type { Extractor, FileRefs, ImportBinding, Span, SymbolKind, SymbolRecord } from './types.js';
 import { collapseCallers, noRefs } from './types.js';
 
 /**
@@ -165,7 +165,7 @@ function finalTypeSegment(scoped: SyntaxNode): string | undefined {
  * `demo/other/Base.java`); a static import binds the member name with
  * the class as its path; wildcard imports claim no name at all.
  */
-function importBinding(decl: SyntaxNode): void | [string, { imported: string; source: string }] {
+function importBinding(decl: SyntaxNode): void | [string, ImportBinding] {
   if (decl.children.some((c) => c.type === 'asterisk')) return; // wildcard: claims nothing
   const scoped = decl.namedChildren.find((c) => c.type === 'scoped_identifier');
   if (!scoped) return;
@@ -173,7 +173,7 @@ function importBinding(decl: SyntaxNode): void | [string, { imported: string; so
   const isStatic = decl.children.some((c) => c.type === 'static');
   const path = (isStatic ? segments.slice(0, -1) : segments).join('/');
   const name = segments.at(-1)!;
-  return [name, { imported: name, source: `${path}.java` }];
+  return [name, { kind: 'named', imported: name, source: `${path}.java` }];
 }
 
 function makeRecord(
@@ -255,6 +255,14 @@ export function createJavaExtractor(): Extractor {
         if (name && caller) (called[caller] ??= new Set<string>()).add(name);
       }
       return { imports, callers: collapseCallers(called) };
+    },
+    resolveImport(_file, binding, index) {
+      if (binding.kind !== 'named') return undefined;
+      const matches = index.matching(binding.source);
+      if (matches.length !== 1) return undefined; // external, or ambiguous across package roots
+      return index.at(matches[0])?.includes(binding.imported)
+        ? `${matches[0]}#${binding.imported}`
+        : undefined;
     },
   };
 }

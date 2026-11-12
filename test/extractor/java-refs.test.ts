@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createJavaExtractor } from '../../src/extractor/java.js';
+import type { ImportBinding, ImportIndex } from '../../src/extractor/types.js';
 
 /**
  * V2-3: Java call-ref extraction at parity with TS/JS (ADR-0004) —
@@ -78,12 +79,43 @@ describe('Java extractor — call refs (ADR-0004, V2-3)', () => {
 
   it('normalizes imports to package-path form; wildcards claim nothing', async () => {
     const { imports } = view(await createJavaExtractor().extractRefs(CODE, 'src/Greeter.java'));
-    expect(imports.Base).toEqual({ imported: 'Base', source: 'demo/other/Base.java' });
-    expect(imports.Thing).toEqual({ imported: 'Thing', source: 'demo/deep/Thing.java' });
-    expect(imports.tool).toEqual({ imported: 'tool', source: 'demo/other/K.java' }); // static import: path is the class
-    // external libraries claim their name too — the core's suffix match finds no indexed file, so no edge
-    expect(imports.List).toEqual({ imported: 'List', source: 'java/util/List.java' });
+    expect(imports.Base).toEqual({ kind: 'named', imported: 'Base', source: 'demo/other/Base.java' });
+    expect(imports.Thing).toEqual({ kind: 'named', imported: 'Thing', source: 'demo/deep/Thing.java' });
+    expect(imports.tool).toEqual({ kind: 'named', imported: 'tool', source: 'demo/other/K.java' }); // static import: path is the class
+    // external libraries claim their name too — resolution finds no indexed file, so no edge
+    expect(imports.List).toEqual({ kind: 'named', imported: 'List', source: 'java/util/List.java' });
     // the wildcard import (demo.wide.*) binds nothing at all
     expect(Object.values(imports).some((b) => JSON.stringify(b).includes('demo/wide'))).toBe(false);
+  });
+});
+
+describe('Java extractor — resolveImport (ADR-0005)', () => {
+  const files = ['src/main/java/demo/other/Base.java', 'src/main/demo/other/Ifc.java'];
+  const index: ImportIndex = {
+    at: (file) => ({ 'src/main/java/demo/other/Base.java': ['Base'], 'src/main/demo/other/Ifc.java': ['Unrelated'] })[file],
+    matching: (suffix) => files.filter((p) => p === suffix || p.endsWith(`/${suffix}`)),
+  };
+  const extractor = createJavaExtractor();
+  const resolve = (binding: ImportBinding) => extractor.resolveImport!('src/Greeter.java', binding, index);
+
+  it('resolves a package path by unique indexed-file suffix, whatever the package root', () => {
+    expect(resolve({ kind: 'named', imported: 'Base', source: 'demo/other/Base.java' })).toBe(
+      'src/main/java/demo/other/Base.java#Base',
+    );
+  });
+
+  it('external libraries, ambiguous suffixes and absent names resolve nothing', () => {
+    expect(resolve({ kind: 'named', imported: 'List', source: 'java/util/List.java' })).toBeUndefined();
+    // two roots carrying the same package path → ambiguous → no edge
+    const twoRoots: ImportIndex = {
+      ...index,
+      matching: (suffix) => [
+        'src/main/java/demo/other/Base.java',
+        'src/test/demo/other/Base.java',
+      ].filter((p) => p === suffix || p.endsWith(`/${suffix}`)),
+    };
+    expect(extractor.resolveImport!('src/Greeter.java', { kind: 'named', imported: 'Base', source: 'demo/other/Base.java' }, twoRoots)).toBeUndefined();
+    // matched file lacks the name → no edge
+    expect(resolve({ kind: 'named', imported: 'Ifc', source: 'demo/other/Ifc.java' })).toBeUndefined();
   });
 });

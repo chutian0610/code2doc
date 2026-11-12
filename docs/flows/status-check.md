@@ -8,9 +8,9 @@ only the printing differs.)
    starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 
-2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.a6ea9cb50d1f281b") globs the
+2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.f17113f4fd26a12b") globs the
    config's scope and parses every file whose content hash differs from
-   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:097909b3a2dbffdd.adc5b82b7ebd575d") had — unchanged files keep
+   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:097909b3a2dbffdd.3af48f8a6c971ecc") had — unchanged files keep
    their cached symbols, so a fresh clone and a warm one reach the same
    state. [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:05c31eec37899133.a49d58e681604d3a") persists it; the cache
    is derived state, safe to delete and rebuild.
@@ -27,11 +27,11 @@ only the printing differs.)
    resolves each against the fresh index — symbol gone or signature
    changed → Broken, body changed → Drift, match → fresh. An anchor
    that is itself fresh is then checked for **Ripple** (ADR-0004):
-   [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:649f5829f247477c.27edceae99fc4d5c") builds the call graph
+   [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.52175494bc651324") builds the call graph
    from the *previous* cache (the graph as of the last status, so a
    deleted callee still ripples its caller),
-   [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:ca5ea69ee3bdc6b7.1b88c85973b5bb5b") diffs the two caches,
-   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:7301f63171cfa2a4.88bc4d1bb1796d33") walks the change
+   [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.c5666680021b2283") diffs the two caches,
+   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:0d912deb4c12ffc2.4b5060dcb0557396") walks the change
    set backwards over caller edges, so a ripple reaches any depth and
    names each stale callee with `via` and `depth`. No previous cache —
    fresh clone or foreign version — means no baseline and a

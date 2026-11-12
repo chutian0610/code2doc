@@ -36,7 +36,7 @@ function cache(files: Record<string, { symbols?: SymbolRecord[]; refs?: FileRefs
   for (const [file, entry] of Object.entries(files)) {
     out[file] = { hash: 'h', symbols: entry.symbols ?? [], refs: entry.refs ?? noRefs() };
   }
-  return { version: 3, files: out };
+  return { version: 4, files: out };
 }
 
 /** Edge view keyed `caller → callees`, skipping empty callers. */
@@ -69,8 +69,8 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
         symbols: [sym('src/greet.ts', 'fn')],
         refs: {
           imports: {
-            helper: { imported: 'helper', source: './helper' },
-            h: { imported: 'helper', source: './helper.js' }, // ESM-style specifier for a .ts file
+            helper: { kind: 'named', imported: 'helper', source: './helper' },
+            h: { kind: 'named', imported: 'helper', source: './helper.js' }, // ESM-style specifier for a .ts file
           },
           callers: { fn: ['helper', 'h'] },
         },
@@ -89,9 +89,9 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
         symbols: [sym('src/greet.ts', 'fn'), sym('src/greet.ts', 'sameFilePick')],
         refs: {
           imports: {
-            fromPkg: { imported: 'x', source: 'some-package' },
-            def: { imported: '', source: './helper' },
-            missing: { imported: 'helper', source: './no-such-file' },
+            fromPkg: { kind: 'named', imported: 'x', source: 'some-package' },
+            def: { kind: 'default', source: './helper' },
+            missing: { kind: 'named', imported: 'helper', source: './no-such-file' },
           },
           callers: { fn: ['fromPkg', 'def', 'missing', 'sameFilePick'] },
         },
@@ -158,7 +158,7 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
     const c = cache({
       'src/greet.ts': {
         symbols: [sym('src/greet.ts', 'fn')],
-        refs: { imports: { helper: { imported: 'helper', source: './util' } }, callers: { fn: ['helper', 'ghost'] } },
+        refs: { imports: { helper: { kind: 'named', imported: 'helper', source: './util' } }, callers: { fn: ['helper', 'ghost'] } },
       },
       'src/util/index.ts': { symbols: [sym('src/util/index.ts', 'helper')] },
     });
@@ -171,7 +171,7 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
     const c = cache({
       'src/Greeter.java': {
         symbols: [sym('src/Greeter.java', 'greet')],
-        refs: { imports: { Base: { imported: 'Base', source: 'demo/other/Base.java' } }, callers: { greet: ['Base'] } },
+        refs: { imports: { Base: { kind: 'named', imported: 'Base', source: 'demo/other/Base.java' } }, callers: { greet: ['Base'] } },
       },
       'src/main/java/demo/other/Base.java': { symbols: [sym('src/main/java/demo/other/Base.java', 'Base')] },
     });
@@ -182,7 +182,7 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
     const c = cache({
       'src/Greeter.java': {
         symbols: [sym('src/Greeter.java', 'greet')],
-        refs: { imports: { List: { imported: 'List', source: 'java/util/List.java' } }, callers: { greet: ['List'] } },
+        refs: { imports: { List: { kind: 'named', imported: 'List', source: 'java/util/List.java' } }, callers: { greet: ['List'] } },
       },
       'src/other/List.java': { symbols: [sym('src/other/List.java', 'List')] },
     });
@@ -195,8 +195,8 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
         symbols: [sym('src/A.java', 'fn')],
         refs: {
           imports: {
-            Base: { imported: 'Base', source: 'demo/other/Base.java' }, // two matches below
-            Ifc: { imported: 'Ifc', source: 'demo/other/Ifc.java' },    // matched file lacks the name
+            Base: { kind: 'named', imported: 'Base', source: 'demo/other/Base.java' }, // two matches below
+            Ifc: { kind: 'named', imported: 'Ifc', source: 'demo/other/Ifc.java' },    // matched file lacks the name
           },
           callers: { fn: ['Base', 'Ifc'] },
         },
@@ -214,7 +214,7 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
     const c = cache({
       'src/greet.ts': {
         symbols: [sym('src/greet.ts', 'fn')],
-        refs: { imports: { x: { imported: 'x', source: 'pkg/sub.js' } }, callers: { fn: ['x'] } },
+        refs: { imports: { x: { kind: 'named', imported: 'x', source: 'pkg/sub.js' } }, callers: { fn: ['x'] } },
       },
       'src/pkg/sub.js': { symbols: [sym('src/pkg/sub.js', 'x')] },
     });
