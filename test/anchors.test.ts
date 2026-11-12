@@ -29,7 +29,7 @@ function sym(file: string, name: string, signature = SIG, body = BODY): SymbolRe
 }
 
 function cacheOf(symbols: SymbolRecord[]): CacheData {
-  return { version: 3, files: { 'src/x.ts': { hash: 'h', symbols, refs: { imports: {}, callers: {} } } } };
+  return { version: 4, files: { 'src/x.ts': { hash: 'h', symbols, refs: { imports: {}, callers: {} } } } };
 }
 
 /** The anchor a page wrote for `src/x.ts#fn` before it vanished. */

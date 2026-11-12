@@ -52,19 +52,39 @@ export interface SymbolRecord {
 }
 
 /**
+ * One import binding as the language layer extracted it. `named` carries
+ * the imported name; `default` is the module's default export — claimed
+ * but unresolvable by name, so the cascade must not fall through.
+ */
+export type ImportBinding =
+  | { kind: 'named'; imported: string; source: string }
+  | { kind: 'default'; source: string };
+
+/**
+ * The index probe the core hands a language's `resolveImport`: lookup by
+ * path, and suffix enumeration for package-path forms. The language
+ * constructs its own candidate paths; the core owns the index.
+ */
+export interface ImportIndex {
+  /** Symbol names of one indexed file, or undefined when it is not indexed. */
+  at(file: string): readonly string[] | undefined;
+  /** Indexed files whose path equals `suffix` or ends with `/${suffix}`. */
+  matching(suffix: string): readonly string[];
+}
+
+/**
  * Call references made from one file, the raw material of call edges
  * (ADR-0004). The query layer only captures *what is called and by whom*;
  * which caller–callee pairs become edges is the language-agnostic
- * disambiguation cascade's job.
+ * disambiguation steps' job.
  */
 export interface FileRefs {
   /**
    * Local import bindings: local name → what it imports and from where.
-   * `imported: ''` marks a default import (unresolvable by name);
-   * namespace imports are not listed (member calls resolve by their
+   * Namespace imports are not listed (member calls resolve by their
    * final identifier through the cascade instead).
    */
-  imports: Record<string, { imported: string; source: string }>;
+  imports: Record<string, ImportBinding>;
   /**
    * Caller (top-level function/variable symbol name, or the class for
    * heritage) → final identifiers it references, deduped.
@@ -96,4 +116,11 @@ export interface Extractor {
    * yet: no edges, and no ripple, for its files.
    */
   extractRefs?(code: string, file: string): Promise<FileRefs>;
+  /**
+   * Resolve one import binding of this language to an indexed
+   * `file#name`, or undefined. Where import resolution lives (ADR-0005):
+   * the language knows its specifier forms, the core only hands the
+   * index probe. Absent behaves like unresolved: no edge, no fall-through.
+   */
+  resolveImport?(file: string, binding: ImportBinding, index: ImportIndex): string | undefined;
 }

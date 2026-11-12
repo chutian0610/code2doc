@@ -14,9 +14,10 @@ export interface CacheData {
   /**
    * Bumped whenever the fingerprint algorithm or the cached shape
    * changes: a cache from a different algorithm would silently poison
-   * anchor verification (v3 adds call refs, ADR-0004).
+   * anchor verification (v3 added call refs; v4 retagged import
+   * bindings, ADR-0004/0005).
    */
-  version: 3;
+  version: 4;
   files: Record<string, { hash: string; symbols: SymbolRecord[]; refs: FileRefs }>;
 }
 
@@ -40,7 +41,7 @@ export async function scan(
     ignore: config.exclude,
     dot: false,
   });
-  const cache: CacheData = { version: 3, files: {} };
+  const cache: CacheData = { version: 4, files: {} };
   for (const raw of files.sort()) {
     const rel = toPosix(raw);
     const extractor = extractorForFile(rel);
@@ -60,7 +61,7 @@ export function loadCache(root: string): CacheData | undefined {
   const file = path.join(root, CACHE_FILE);
   if (!existsSync(file)) return undefined;
   const parsed = JSON.parse(readFileSync(file, 'utf8')) as CacheData;
-  if (parsed.version !== 3) return undefined; // foreign algorithm: rebuild
+  if (parsed.version !== 4) return undefined; // foreign algorithm: rebuild
   return parsed;
 }
 
