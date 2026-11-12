@@ -71,6 +71,13 @@ export function loadManifest(root: string, docRoot: string): Manifest | undefine
 
 export function saveManifest(root: string, docRoot: string, manifest: Manifest): void {
   const file = manifestPath(root, docRoot);
+  // The manifest is Operator-owned repo content: when the file's parsed
+  // content already equals what we'd save, leave the bytes alone — a
+  // re-init must not reformat-churn a hand-shaped file.
+  if (existsSync(file)) {
+    const current = loadManifest(root, docRoot);
+    if (current && JSON.stringify(current) === JSON.stringify(manifest)) return;
+  }
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 }

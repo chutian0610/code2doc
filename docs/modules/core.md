@@ -102,7 +102,7 @@ directory via [PageEntry](../../src/manifest.ts "c2d:src/manifest.ts#PageEntry:d
 violations tool failures that name the offender.
 [manifestPath](../../src/manifest.ts "c2d:src/manifest.ts#manifestPath:9af370dee14720d4.f8f1b0637c22ce04"),
 [loadManifest](../../src/manifest.ts "c2d:src/manifest.ts#loadManifest:5e1332b8bf04023d.bfc45f9f5785f349"),
-[saveManifest](../../src/manifest.ts "c2d:src/manifest.ts#saveManifest:d3521aff761dc207.5e80cbc4018f6eaf") and
+[saveManifest](../../src/manifest.ts "c2d:src/manifest.ts#saveManifest:d3521aff761dc207.de83f0e5debbd8de") and
 [emptyManifest](../../src/manifest.ts "c2d:src/manifest.ts#emptyManifest:bbbc095aba5dfc00.edd5c107277feaa4") are the persistence
 plumbing.
 
