@@ -55,6 +55,18 @@ describe('code2doc CLI', () => {
     expect(gitignore).toContain('.code2doc/');
   });
 
+  it('init leaves a semantically unchanged manifest byte-for-byte alone', () => {
+    const dir = copyFixture(tsFixture, 'code2doc-');
+    run(['init'], dir);
+    // the Operator's own formatting is their call — a re-init must not churn it
+    const file = path.join(dir, 'docs', 'manifest.json');
+    const handShaped = '{"pages":[{"path":"overview.md","type":"overview"}]}';
+    writeFileSync(file, handShaped, 'utf8');
+
+    run(['init'], dir);
+    expect(readFileSync(file, 'utf8')).toBe(handShaped);
+  });
+
   it('skips files whose language has no extractor, via the include config', () => {
     const dir = copyFixture(tsFixture, 'code2doc-');
     run(['init'], dir);
