@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { changedSince, resolveEdges, ripplesUnder } from '../src/ripple.js';
+import { buildBaseline, changedSince, resolveEdges, ripplesUnder } from '../src/ripple.js';
 import type { CacheData } from '../src/cache.js';
 import type { ChangeMap, EdgeMap } from '../src/ripple.js';
 import type { FileRefs, SymbolRecord } from '../src/extractor/types.js';
@@ -297,5 +297,46 @@ describe('ripplesUnder — reverse reachability from the change set', () => {
   it('is empty with no changes or no edges', () => {
     expect(ripplesUnder(new Map(), changes([[C, 'drift']]))).toEqual(new Map());
     expect(ripplesUnder(edges([[A, B]]), new Map())).toEqual(new Map());
+  });
+});
+
+describe('buildBaseline — the pairing, as one module (architecture review #2)', () => {
+  const A = 'src/chain.ts#a';
+  const B = 'src/mid.ts#mid';
+
+  /** A previous cache where a calls b, and the b-of-now to diff against. */
+  function fixture(nowB: 'same' | 'edited' | 'gone') {
+    const bBody = nowB === 'same' ? BODY_A : nowB === 'edited' ? BODY_B : undefined;
+    const previous = cache({
+      'src/chain.ts': { symbols: [sym('src/chain.ts', 'a')], refs: { imports: {}, callers: { a: ['mid'] } } },
+      'src/mid.ts': { symbols: [sym('src/mid.ts', 'mid')] },
+    });
+    const current = cache({
+      'src/chain.ts': { symbols: [sym('src/chain.ts', 'a')], refs: { imports: {}, callers: { a: ['mid'] } } },
+      ...(nowB === 'gone'
+        ? { 'src/mid.ts': { symbols: [] as SymbolRecord[] } }
+        : { 'src/mid.ts': { symbols: [sym('src/mid.ts', 'mid', SIG_A, bBody)] } }),
+    });
+    return { previous, current };
+  }
+
+  it('edges come from the previous cache: a callee deleted since still ripples its caller', () => {
+    const { previous, current } = fixture('gone');
+    const baseline = buildBaseline(previous, current);
+    expect(baseline.ripplesOf(A)).toEqual([{ symbol: B, state: 'broken', via: B, depth: 1 }]);
+  });
+
+  it('a body edit since the last status ripples through the composed closure', () => {
+    const { previous, current } = fixture('edited');
+    const baseline = buildBaseline(previous, current);
+    expect(baseline.ripplesOf(A)).toEqual([{ symbol: B, state: 'drift', via: B, depth: 1 }]);
+  });
+
+  it('nothing moved → no ripples; no previous cache → ripple-silent for every key', () => {
+    const { previous: same, current: unchanged } = fixture('same');
+    expect(buildBaseline(same, unchanged).ripplesOf(A)).toEqual([]);
+    const silent = buildBaseline(undefined, fixture('edited').current);
+    expect(silent.ripplesOf(A)).toEqual([]);
+    expect(silent.ripplesOf(B)).toEqual([]);
   });
 });

@@ -19,7 +19,7 @@ with its fingerprint**, ready to be pasted into anchors.
 
 ## `status.ts` — the verification pass
 
-[runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:c0995b9610c50e1c.0664512ac7dd98e7") brings the cache to
+[runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:c0995b9610c50e1c.3797cb367236f258") brings the cache to
 current state, validates the manifest and reports every declared page:
 anchors verified (fresh ones additionally checked for **Ripple**), doc
 links existence-checked, module pages audited for uncovered public
@@ -28,7 +28,7 @@ details; `--json` prints the same report machine-read. Exit codes: 0
 clean, 1 Drift or Ripple, 2 any Broken or Missing.
 
 - [PageState](../../src/commands/status.ts "c2d:src/commands/status.ts#PageState:2941edf508871e40.2941edf508871e40") — a page's state is the worst of its anchors
-- [AnchorReport](../../src/commands/status.ts "c2d:src/commands/status.ts#AnchorReport:748bc69f976daf8a.748bc69f976daf8a") — one anchor: symbol, state, reason, ripples, candidates, line
+- [AnchorReport](../../src/commands/status.ts "c2d:src/commands/status.ts#AnchorReport:eff294ad5a9f132f.eff294ad5a9f132f") — one anchor: symbol, state, reason, ripples, candidates, line
 - [LinkReport](../../src/commands/status.ts "c2d:src/commands/status.ts#LinkReport:543b728879a3dc62.543b728879a3dc62") — one doc link: target, resolved path, state, reason, line
 - [PageReport](../../src/commands/status.ts "c2d:src/commands/status.ts#PageReport:294e294dff988257.294e294dff988257") — one page: anchors, links, missing symbols, optional note
 - [StatusReport](../../src/commands/status.ts "c2d:src/commands/status.ts#StatusReport:519c02d3c5a45213.519c02d3c5a45213") — pages plus the broken/drift/ripple/missing summary

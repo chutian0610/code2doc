@@ -56,11 +56,16 @@ false edge never is).
 [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.c5666680021b2283") diffs the previous
 status cache into the changed set (gone or signature moved → broken,
 body moved → drift; additions are not changes), and
-[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:0d912deb4c12ffc2.4b5060dcb0557396") propagates it:
+[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:e191fee791497fdd.09891e4feb8a2019") propagates it:
 reverse single-source reachability from each changed symbol over caller
 edges, keeping the shortest path — `via` is the reached symbol's own
 callee on it, `depth` its length — so closure cost scales with the
-change set, not the anchor count.
+change set, not the anchor count. The pairing itself is one module,
+[buildBaseline](../../src/ripple.ts "c2d:src/ripple.ts#buildBaseline:8e64f5cda85d7424.e3934c52a7ea29f1"):
+edges from the previous cache, the diff against the current one — a
+callee deleted since the last status still ripples its caller — behind
+the single-method [Baseline](../../src/ripple.ts "c2d:src/ripple.ts#Baseline:bba3b720767874c4.bba3b720767874c4")
+interface the status pass queries.
 
 - [EdgeMap](../../src/ripple.ts "c2d:src/ripple.ts#EdgeMap:3c402fddea2aa1e0.3c402fddea2aa1e0") — resolved caller → callee keys, both `file#name`
 - [ChangeState](../../src/ripple.ts "c2d:src/ripple.ts#ChangeState:34f10af966d35a15.34f10af966d35a15") — `broken | drift`, how a callee moved

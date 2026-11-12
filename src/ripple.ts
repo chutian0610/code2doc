@@ -135,6 +135,31 @@ export function changedSince(prev: CacheData | undefined, curr: CacheData): Chan
   return changed;
 }
 
+/** The cache baseline of one status run: which symbols the ripples reached. */
+export interface Baseline {
+  /**
+   * Ripples that reached one symbol (`file#name`) since the last
+   * status; empty without a baseline. The graph these travelled is the
+   * one as of the last status — see buildBaseline for the pairing.
+   */
+  ripplesOf(key: string): readonly Ripple[];
+}
+
+/**
+ * The pairing, as one module (architecture review #2): the call graph
+ * resolves against the *previous* cache — the graph as of the last
+ * status, so a callee deleted since then still ripples its caller —
+ * while the change set diffs previous against *current*. No previous
+ * cache (fresh clone, foreign version) means no baseline and a
+ * ripple-silent run; direct signals are unaffected either way.
+ */
+export function buildBaseline(previous: CacheData | undefined, current: CacheData): Baseline {
+  if (!previous) return { ripplesOf: () => [] };
+  const edges = resolveEdges(previous);
+  const rippled = ripplesUnder(edges, changedSince(previous, current));
+  return { ripplesOf: (key) => rippled.get(key) ?? [] };
+}
+
 /**
  * Ripple propagation as reverse single-source reachability: from each
  * changed symbol, walk caller edges backwards and record every symbol
