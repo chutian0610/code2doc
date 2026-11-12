@@ -1,5 +1,6 @@
 import { allSymbols } from './cache.js';
 import type { CacheData } from './cache.js';
+import type { Ripple } from './ripple.js';
 import { FINGERPRINT_HEX } from './extractor/types.js';
 import type { Fingerprint, SymbolRecord } from './extractor/types.js';
 
@@ -150,4 +151,30 @@ export function renameCandidates(anchor: Anchor, cache: CacheData): string[] {
     )
     .map(key)
     .slice(0, 3);
+}
+
+/** The ladder as one ordering: broken > drift > ripple > fresh. */
+const STATE_RANK: Record<AnchorState, number> = { broken: 3, drift: 2, ripple: 1, fresh: 0 };
+
+/** The worse of two states — the ladder defined once, consumed everywhere. */
+export function worse(a: AnchorState, b: AnchorState): AnchorState {
+  return STATE_RANK[a] >= STATE_RANK[b] ? a : b;
+}
+
+/** An anchor's verdict: the state and its reason as one typed fact. */
+export interface AnchorVerdict {
+  state: AnchorState;
+  reason: AnchorReason;
+}
+
+/**
+ * Judge one anchor: ripple applies only when the check itself is
+ * fresh — a stale anchor is reported directly, never through its
+ * callees. The pairing of state to reason lives here and nowhere else.
+ */
+export function anchorVerdict(check: AnchorCheck, ripples: readonly Ripple[]): AnchorVerdict {
+  if (check.state === 'fresh' && ripples.length > 0) {
+    return { state: 'ripple', reason: 'callee went stale' };
+  }
+  return { state: check.state, reason: check.reason };
 }
