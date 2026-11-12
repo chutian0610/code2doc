@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renameCandidates } from '../src/anchors.js';
+import { anchorVerdict, renameCandidates, worse } from '../src/anchors.js';
 import type { CacheData } from '../src/cache.js';
 import type { SymbolRecord } from '../src/extractor/types.js';
 
@@ -85,5 +85,32 @@ describe('renameCandidates (V2-4)', () => {
   it('yields nothing when nothing plausibly matches', () => {
     const cache = cacheOf([sym('src/x.ts', 'other', SIG2, BODY2)]);
     expect(renameCandidates(anchorOf(SIG, BODY), cache)).toEqual([]);
+  });
+});
+
+describe('the severity ladder, defined once (architecture review #3)', () => {
+  it('worse() encodes the whole ladder: broken > drift > ripple > fresh', () => {
+    const ladder = ['fresh', 'ripple', 'drift', 'broken'] as const;
+    for (let i = 0; i < ladder.length; i++) {
+      for (let j = 0; j < ladder.length; j++) {
+        expect(worse(ladder[i], ladder[j])).toBe(ladder[Math.max(i, j)]);
+      }
+    }
+  });
+
+  it('anchorVerdict pairs state and reason as one typed fact', () => {
+    const oneRipple = [{ symbol: 'src/b.ts#b', state: 'drift', via: 'src/b.ts#b', depth: 1 }] as const;
+
+    // a fresh check with ripples becomes the ripple state, paired reason
+    expect(anchorVerdict({ state: 'fresh', reason: '' }, oneRipple)).toEqual({
+      state: 'ripple',
+      reason: 'callee went stale',
+    });
+    // a stale check is reported directly — never through its callees
+    expect(anchorVerdict({ state: 'drift', reason: 'body changed' }, oneRipple)).toEqual({
+      state: 'drift',
+      reason: 'body changed',
+    });
+    expect(anchorVerdict({ state: 'fresh', reason: '' }, [])).toEqual({ state: 'fresh', reason: '' });
   });
 });

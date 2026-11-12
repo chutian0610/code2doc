@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { checkAnchor, parseAnchors, renameCandidates } from '../anchors.js';
+import { anchorVerdict, checkAnchor, parseAnchors, renameCandidates, worse } from '../anchors.js';
 import type { AnchorReason, AnchorState } from '../anchors.js';
 import { loadCache, saveCache, scan, allSymbols } from '../cache.js';
 import type { CacheData } from '../cache.js';
@@ -66,12 +66,16 @@ export interface StatusReport {
   summary: { broken: number; drift: number; ripple: number; missing: number };
 }
 
-/** Worst state wins: broken > drift > ripple > fresh. Links share the ladder. */
+/** Worst state wins; the ladder itself is `worse`, defined once in anchors.ts. */
 function worstState(states: PageState[]): PageState {
-  if (states.includes('broken')) return 'broken';
-  if (states.includes('drift')) return 'drift';
-  if (states.includes('ripple')) return 'ripple';
-  return 'fresh';
+  return states.reduce(worse, 'fresh');
+}
+
+/** Exit tier from the summary: 0 clean, 1 review (drift/ripple), 2 any broken/missing. */
+function exitTier(summary: StatusReport['summary']): 0 | 1 | 2 {
+  if (summary.broken > 0 || summary.missing > 0) return 2;
+  if (summary.drift > 0 || summary.ripple > 0) return 1;
+  return 0;
 }
 
 /**
@@ -122,14 +126,14 @@ function reportPage(
     // Ripple only for anchors whose own fingerprint still matches: a
     // stale anchor is reported directly, never through its callees.
     const ripples = check.state === 'fresh' ? baseline.ripplesOf(`${anchor.file}#${anchor.name}`) : [];
-    const isRippled = ripples.length > 0;
+    const verdict = anchorVerdict(check, ripples);
     const candidates = check.state === 'broken' && check.reason === 'symbol gone'
       ? renameCandidates(anchor, cache)
       : [];
     return {
       symbol: `${anchor.file}#${anchor.name}`,
-      state: (isRippled ? 'ripple' : check.state) as AnchorState,
-      reason: (isRippled ? 'callee went stale' : check.reason) as AnchorReason,
+      state: verdict.state,
+      reason: verdict.reason,
       ripples,
       candidates,
       line: anchor.line,
@@ -264,8 +268,5 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
       console.log(line);
     }
   }
-  // 0 clean / 1 drift or ripple / 2 any broken or missing
-  if (report.summary.broken > 0 || report.summary.missing > 0) return 2;
-  if (report.summary.drift > 0 || report.summary.ripple > 0) return 1;
-  return 0;
+  return exitTier(report.summary);
 }

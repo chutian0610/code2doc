@@ -20,7 +20,13 @@ the two into a page's anchor list. Verification is
 broken, body mismatch → drift, match → fresh. A vanished symbol gets
 advisory rename candidates from
 [renameCandidates](../../src/anchors.ts "c2d:src/anchors.ts#renameCandidates:68cb0299f7e0bf9c.a9992f5edfff5f56"):
-a signature-exact match elsewhere (a pure move), a same-name symbol, or
+the ladder itself is
+[worse](../../src/anchors.ts "c2d:src/anchors.ts#worse:e7ac2ade00f1c7d5.6b569538f8dd70d8")
+defined once, and
+[anchorVerdict](../../src/anchors.ts "c2d:src/anchors.ts#anchorVerdict:c5a4f893bb2c2f10.7c08c55ddd428eb3")
+pairs each state with its reason as one typed fact (ripple only when
+the check itself is fresh). A vanished symbol gets advisory rename
+candidates: a signature-exact match elsewhere (a pure move), a same-name symbol, or
 an unchanged body (a pure rename — the signature carries the name, so
 it necessarily changed); ≤3, never a state or an exit code.
 
@@ -30,6 +36,7 @@ it necessarily changed); ≤3, never a state or an exit code.
 - [AnchorState](../../src/anchors.ts "c2d:src/anchors.ts#AnchorState:931b1fd49c036623.931b1fd49c036623") — `fresh | drift | ripple | broken`, also the page-state ladder
 - [AnchorReason](../../src/anchors.ts "c2d:src/anchors.ts#AnchorReason:af8682aecd06428b.af8682aecd06428b") — `''` / `symbol gone` / `signature changed` / `body changed` / `callee went stale`
 - [AnchorCheck](../../src/anchors.ts "c2d:src/anchors.ts#AnchorCheck:c87c463cdc3bc96a.c87c463cdc3bc96a") — one check's state plus reason
+- [AnchorVerdict](../../src/anchors.ts "c2d:src/anchors.ts#AnchorVerdict:ba96ff106836d151.ba96ff106836d151") — state and reason as one typed fact
 
 ## `cache.ts` — derived state, rebuildable at any time
 
