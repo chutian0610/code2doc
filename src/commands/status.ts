@@ -10,8 +10,8 @@ import type { LinkReason, LinkState } from '../links.js';
 import { loadManifest, emptyManifest, validateManifest } from '../manifest.js';
 import type { PageEntry, PageType } from '../manifest.js';
 import { dirOf, normalizeModuleDir } from '../paths.js';
-import { changedSince, resolveEdges, ripplesUnder } from '../ripple.js';
-import type { EdgeMap, Ripple } from '../ripple.js';
+import { buildBaseline } from '../ripple.js';
+import type { Baseline, Ripple } from '../ripple.js';
 
 /** A page's state is the worst state among its anchors ('fresh' == Accurate). */
 export type PageState = AnchorState;
@@ -26,7 +26,7 @@ export interface AnchorReport {
    * propagation paths. Empty unless the anchor itself is fresh — a
    * stale anchor is reported directly, not through its callees.
    */
-  ripples: Ripple[];
+  ripples: readonly Ripple[];
   /**
    * Advisory rename guesses (≤3) for a vanished symbol — pure advice,
    * never a state or an exit code. Empty for every other anchor.
@@ -100,7 +100,7 @@ function reportPage(
   root: string,
   docRoot: string,
   cache: CacheData,
-  ripplesBySymbol: Map<string, Ripple[]>,
+  baseline: Baseline,
 ): PageReport {
   const abs = path.join(root, docRoot, entry.path);
   let markdown: string;
@@ -121,7 +121,7 @@ function reportPage(
     const check = checkAnchor(anchor, cache);
     // Ripple only for anchors whose own fingerprint still matches: a
     // stale anchor is reported directly, never through its callees.
-    const ripples = check.state === 'fresh' ? (ripplesBySymbol.get(`${anchor.file}#${anchor.name}`) ?? []) : [];
+    const ripples = check.state === 'fresh' ? baseline.ripplesOf(`${anchor.file}#${anchor.name}`) : [];
     const isRippled = ripples.length > 0;
     const candidates = check.state === 'broken' && check.reason === 'symbol gone'
       ? renameCandidates(anchor, cache)
@@ -236,18 +236,11 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
   const cache = await scan(root, config, previous);
   saveCache(root, cache);
 
-  // Ripple reads the graph as of the last status: edges resolve against
-  // the previous cache, so a callee deleted since then still ripples its
-  // caller. No previous cache (fresh clone, foreign version) → no
-  // baseline → ripple-silent, direct signals unaffected. The closure is
-  // reverse reachability from the change set, so its cost scales with
-  // what moved, not with how many anchors exist (V2-2).
-  const edges: EdgeMap = previous ? resolveEdges(previous) : new Map();
-  const ripplesBySymbol = ripplesUnder(edges, changedSince(previous, cache));
+  const baseline = buildBaseline(previous, cache);
 
   const manifest = validateManifest(loadManifest(root, config.docRoot) ?? emptyManifest());
   const pages = manifest.pages.map((entry) =>
-    reportPage(entry, root, config.docRoot, cache, ripplesBySymbol),
+    reportPage(entry, root, config.docRoot, cache, baseline),
   );
   const report: StatusReport = {
     pages,

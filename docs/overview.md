@@ -13,7 +13,7 @@ Two commands, dispatched by `src/cli.ts`:
 - [runInit](../src/commands/init.ts "c2d:src/commands/init.ts#runInit:1a8aeb128109ced2.6aa468b5d536f21a") sets a repo up: config, an
   empty manifest, a doc-tree skeleton and a symbol index whose public
   symbols carry the fingerprints the Operator will anchor with.
-- [runStatus](../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:c0995b9610c50e1c.0664512ac7dd98e7") is the product: it
+- [runStatus](../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:c0995b9610c50e1c.3797cb367236f258") is the product: it
   re-indexes the code, checks every declared page and reports
   **Broken**, **Drift**, **Ripple** and **Missing** with exit codes
   0/1/2.
