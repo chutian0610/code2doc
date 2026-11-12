@@ -10,6 +10,8 @@ import type { LinkReason, LinkState } from '../links.js';
 import { loadManifest, emptyManifest, validateManifest } from '../manifest.js';
 import type { PageEntry, PageType } from '../manifest.js';
 import { dirOf, normalizeModuleDir } from '../paths.js';
+import { changedSince, directRipples, resolveEdges } from '../ripple.js';
+import type { ChangeMap, EdgeMap, Ripple } from '../ripple.js';
 
 /** A page's state is the worst state among its anchors ('fresh' == Accurate). */
 export type PageState = AnchorState;
@@ -19,6 +21,12 @@ export interface AnchorReport {
   symbol: string;
   state: AnchorState;
   reason: AnchorReason;
+  /**
+   * Stale callees under the anchor since the last status (V2-1: direct
+   * callees only). Empty unless the anchor itself is fresh — a stale
+   * anchor is reported directly, not through its callees.
+   */
+  ripples: Ripple[];
   /** 1-based line of the anchor within the page. */
   line: number;
 }
@@ -49,13 +57,15 @@ export interface PageReport {
 
 export interface StatusReport {
   pages: PageReport[];
-  summary: { broken: number; drift: number; missing: number };
+  /** broken/drift/ripple count pages (worst state); missing counts symbols. */
+  summary: { broken: number; drift: number; ripple: number; missing: number };
 }
 
-/** Worst state wins: broken > drift > fresh. Links share the ladder. */
+/** Worst state wins: broken > drift > ripple > fresh. Links share the ladder. */
 function worstState(states: PageState[]): PageState {
   if (states.includes('broken')) return 'broken';
   if (states.includes('drift')) return 'drift';
+  if (states.includes('ripple')) return 'ripple';
   return 'fresh';
 }
 
@@ -80,7 +90,14 @@ function moduleIndexed(module: string, cache: CacheData): boolean {
   return Object.keys(cache.files).some((file) => dirOf(file) === dir);
 }
 
-function reportPage(entry: PageEntry, root: string, docRoot: string, cache: CacheData): PageReport {
+function reportPage(
+  entry: PageEntry,
+  root: string,
+  docRoot: string,
+  cache: CacheData,
+  edges: EdgeMap,
+  changed: ChangeMap,
+): PageReport {
   const abs = path.join(root, docRoot, entry.path);
   let markdown: string;
   try {
@@ -98,10 +115,18 @@ function reportPage(entry: PageEntry, root: string, docRoot: string, cache: Cach
   }
   const anchors = parseAnchors(markdown).map((anchor) => {
     const check = checkAnchor(anchor, cache);
+    // Ripple only for anchors whose own fingerprint still matches: a
+    // stale anchor is reported directly, never through its callees.
+    const ripples =
+      check.state === 'fresh'
+        ? directRipples(`${anchor.file}#${anchor.name}`, edges, changed)
+        : [];
+    const rippled = ripples.length > 0;
     return {
       symbol: `${anchor.file}#${anchor.name}`,
-      state: check.state,
-      reason: check.reason,
+      state: (rippled ? 'ripple' : check.state) as AnchorState,
+      reason: (rippled ? 'callee went stale' : check.reason) as AnchorReason,
+      ripples,
       line: anchor.line,
     };
   });
@@ -160,6 +185,9 @@ function detailLines(report: StatusReport, docRoot: string): string[] {
     lines.push(`${path.join(docRoot, page.path)} (${page.type})`);
     for (const anchor of staleAnchors) {
       lines.push(`  ${anchor.state.padEnd(7)} ${anchor.symbol} — ${anchor.reason}`);
+      for (const ripple of anchor.ripples) {
+        lines.push(`    ${ripple.symbol} ${ripple.state} (via ${ripple.via}, ${ripple.depth} hop)`);
+      }
     }
     for (const link of brokenLinks) {
       lines.push(`  ${link.state.padEnd(7)} ${link.target} — ${link.reason}`);
@@ -173,17 +201,17 @@ function detailLines(report: StatusReport, docRoot: string): string[] {
 }
 
 function summaryLine(report: StatusReport): string {
-  const { broken, drift, missing } = report.summary;
+  const { broken, drift, ripple, missing } = report.summary;
   const total = report.pages.length;
-  const fresh = total - broken - drift;
+  const fresh = total - broken - drift - ripple;
   if (total === 0) {
     return `0 pages, all accurate. Cache in ${CACHE_DIR}/, rebuildable at any time.`;
   }
-  if (broken === 0 && drift === 0 && missing === 0) {
+  if (broken === 0 && drift === 0 && ripple === 0 && missing === 0) {
     return `${total} pages: all accurate.`;
   }
   // missing counts symbols, not pages: a page can be broken and still owe anchors
-  let line = `${total} pages: ${broken} broken, ${drift} drift, ${fresh} fresh.`;
+  let line = `${total} pages: ${broken} broken, ${drift} drift, ${ripple} ripple, ${fresh} fresh.`;
   if (missing > 0) line += ` ${missing} missing symbols.`;
   return line;
 }
@@ -196,18 +224,27 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
   }
   // Always bring the cache to current state: anchors are compared against
   // the code as it stands now, whether or not a cache file exists.
-  const cache = await scan(root, config, loadCache(root));
+  const previous = loadCache(root);
+  const cache = await scan(root, config, previous);
   saveCache(root, cache);
+
+  // Ripple reads the graph as of the last status: edges resolve against
+  // the previous cache, so a callee deleted since then still ripples its
+  // caller. No previous cache (fresh clone, foreign version) → no
+  // baseline → ripple-silent, direct signals unaffected.
+  const edges: EdgeMap = previous ? resolveEdges(previous) : new Map();
+  const changed = changedSince(previous, cache);
 
   const manifest = validateManifest(loadManifest(root, config.docRoot) ?? emptyManifest());
   const pages = manifest.pages.map((entry) =>
-    reportPage(entry, root, config.docRoot, cache),
+    reportPage(entry, root, config.docRoot, cache, edges, changed),
   );
   const report: StatusReport = {
     pages,
     summary: {
       broken: pages.filter((p) => p.state === 'broken').length,
       drift: pages.filter((p) => p.state === 'drift').length,
+      ripple: pages.filter((p) => p.state === 'ripple').length,
       missing: pages.reduce((count, page) => count + page.missing.length, 0),
     },
   };
@@ -224,8 +261,8 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
       console.log(line);
     }
   }
-  // 0 clean / 1 drift-only / 2 any broken or missing
+  // 0 clean / 1 drift or ripple / 2 any broken or missing
   if (report.summary.broken > 0 || report.summary.missing > 0) return 2;
-  if (report.summary.drift > 0) return 1;
+  if (report.summary.drift > 0 || report.summary.ripple > 0) return 1;
   return 0;
 }

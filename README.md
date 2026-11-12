@@ -35,13 +35,14 @@ stands and reports:
 | -------- | -------------------------------------------------------------- | ----------------- |
 | Broken   | Anchored symbol gone, or its signature changed                 | Rewrite the claim |
 | Drift    | Symbol exists, signature same, body changed                    | Review the claim  |
+| Ripple   | The anchor is fresh but a symbol it calls went stale since the last `status` | Review the claim |
 | Missing  | A module's public symbol with no anchor on its module page     | Document it       |
 
 Doc-to-doc links are checked too: a page renamed without its inbound
 links is Broken, like any stale claim.
 
-Exit codes: `0` all accurate, `1` Drift-only, `2` any Broken or Missing
-— so CI (or the agent itself) can gate on severity.
+Exit codes: `0` all accurate, `1` Drift or Ripple, `2` any Broken or
+Missing — so CI (or the agent itself) can gate on severity.
 
 ## The workflow
 

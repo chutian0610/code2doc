@@ -159,7 +159,7 @@ function timedRun(args: string[]): { code: number; stdout: string; ms: number } 
 
 function expectAllFresh(stdout: string): void {
   const report = JSON.parse(stdout);
-  expect(report.summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+  expect(report.summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
 }
 
 describe('code2doc performance acceptance (T7)', () => {

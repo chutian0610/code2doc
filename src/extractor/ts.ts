@@ -3,7 +3,8 @@ import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
 import { fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
-import type { Extractor, Span, SymbolKind, SymbolRecord } from './types.js';
+import type { Extractor, FileRefs, Span, SymbolKind, SymbolRecord } from './types.js';
+import { noRefs } from './types.js';
 
 /**
  * TS/JS extractor built on web-tree-sitter (WASM) with the official
@@ -41,6 +42,27 @@ const QUERY = `
 
 /** Comment ranges are cut from hash input, in every hashed span. */
 const COMMENT_QUERY = `(comment) @comment`;
+
+/**
+ * Call-ref sites per ADR-0004: call/member-call by final identifier,
+ * `new`, `extends`/`implements`. Function-as-value references are a
+ * documented blind spot and match none of these patterns.
+ */
+const REF_QUERY = `
+  (call_expression function: (identifier) @callee)
+  (call_expression function: (member_expression property: (property_identifier) @callee))
+  (new_expression constructor: (identifier) @callee)
+  (new_expression constructor: (member_expression property: (property_identifier) @callee))
+  (extends_clause value: (identifier) @callee)
+  (extends_clause value: (member_expression property: (property_identifier) @callee))
+  (implements_clause (type_identifier) @callee)
+`;
+
+/** Named imports (specifier node read whole, so `a as b` yields local b) and default imports. */
+const IMPORT_QUERY = `
+  (import_statement (import_clause (named_imports (import_specifier) @spec)) source: (string (string_fragment) @source))
+  (import_statement (import_clause (identifier) @local) source: (string (string_fragment) @source))
+`;
 
 /** How a declaration type maps to kind + signature/body spans. */
 interface DeclShape {
@@ -132,20 +154,59 @@ function isTopLevel(decl: SyntaxNode): boolean {
   return parent.type === 'export_statement' && parent.parent?.type === 'program';
 }
 
+/**
+ * Attribute a ref site to its enclosing top-level declaration. Calls and
+ * `new` belong to the enclosing function/variable symbol; heritage
+ * (`extends`/`implements`) belongs to the class itself, which the walk
+ * reaches without entering the class body. Everything else — method
+ * bodies, top-level statements, interface heritage — has no caller
+ * symbol and yields nothing (a tolerated missing edge, never a false one).
+ */
+function callerOf(callee: SyntaxNode): string | undefined {
+  let sawClassBody = false;
+  for (let cur = callee.parent; cur; cur = cur.parent) {
+    if (cur.type === 'class_body') sawClassBody = true;
+    if (isTopLevel(cur)) return callerNameOf(cur, sawClassBody);
+  }
+  return undefined;
+}
+
+/** The caller name of a top-level declaration, or undefined when the decl cannot own calls. */
+function callerNameOf(decl: SyntaxNode, sawClassBody: boolean): string | undefined {
+  if (decl.type === 'class_declaration') {
+    return sawClassBody ? undefined : (decl.childForFieldName('name')?.text ?? undefined);
+  }
+  if (decl.type === 'lexical_declaration') {
+    return declaratorOf(decl).childForFieldName('name')?.text ?? undefined;
+  }
+  if (decl.type === 'function_declaration') {
+    return decl.childForFieldName('name')?.text ?? undefined;
+  }
+  return undefined;
+}
+
+/** Grammar kind for a file extension (`.tsx`/`.jsx` use the tsx grammar). */
+function grammarFor(file: string): 'typescript' | 'tsx' {
+  const ext = path.extname(file).toLowerCase();
+  return ext === '.tsx' || ext === '.jsx' ? 'tsx' : 'typescript';
+}
+
+/** Parse a file once; both extract and extractRefs share the preamble. */
+async function parseTree(code: string, file: string) {
+  parserInit ??= Parser.init();
+  await parserInit;
+  const language = await getLanguage(grammarFor(file));
+  const parser = new Parser();
+  parser.setLanguage(language);
+  return { language, tree: parser.parse(code) };
+}
+
 export function createTsExtractor(): Extractor {
   return {
     languageId: 'ts-family',
     extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
     async extract(code, file) {
-      parserInit ??= Parser.init();
-      await parserInit;
-      const ext = path.extname(file).toLowerCase();
-      const kind = ext === '.tsx' || ext === '.jsx' ? 'tsx' : 'typescript';
-      const language = await getLanguage(kind);
-
-      const parser = new Parser();
-      parser.setLanguage(language);
-      const tree = parser.parse(code);
+      const { language, tree } = await parseTree(code, file);
       if (!tree) return [];
       const query = new Query(language, QUERY);
       const commentQuery = new Query(language, COMMENT_QUERY);
@@ -172,6 +233,40 @@ export function createTsExtractor(): Extractor {
         records.push(makeRecord(bytes, decl, shape, name, file, visibility, comments));
       }
       return records;
+    },
+    async extractRefs(code, file) {
+      const { language, tree } = await parseTree(code, file);
+      if (!tree) return noRefs();
+
+      const imports: FileRefs['imports'] = {};
+      for (const { captures } of new Query(language, IMPORT_QUERY).matches(tree.rootNode)) {
+        const spec = captures.find((c) => c.name === 'spec')?.node;
+        const local = captures.find((c) => c.name === 'local')?.node;
+        const source = captures.find((c) => c.name === 'source')?.node;
+        if (!source) continue;
+        if (spec) {
+          const imported = spec.childForFieldName('name')?.text ?? '';
+          const alias = spec.childForFieldName('alias')?.text ?? imported;
+          imports[alias] = { imported, source: source.text };
+        } else if (local) {
+          // default import: the binding is claimed but unresolvable by name —
+          // the cascade must not fall through to same-file/global guesses
+          imports[local.text] = { imported: '', source: source.text };
+        }
+      }
+
+      const called: Record<string, Set<string>> = {};
+      for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
+        const callee = captures.find((c) => c.name === 'callee')?.node;
+        if (!callee) continue;
+        const caller = callerOf(callee);
+        if (caller) (called[caller] ??= new Set<string>()).add(callee.text);
+      }
+      const callers: FileRefs['callers'] = {};
+      for (const caller of Object.keys(called).sort()) {
+        callers[caller] = [...called[caller]].sort();
+      }
+      return { imports, callers };
     },
   };
 }

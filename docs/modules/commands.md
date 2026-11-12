@@ -19,18 +19,19 @@ with its fingerprint**, ready to be pasted into anchors.
 
 ## `status.ts` — the verification pass
 
-[runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:345f4db5dcd4804d.a9d4da851121bf1b") brings the cache to
+[runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:397ee10789769636.cb81432b168e4c39") brings the cache to
 current state, validates the manifest and reports every declared page:
-anchors verified, doc links existence-checked, module pages audited for
-uncovered public exports. Default output is a per-page freshness table
-plus drill-down details; `--json` prints the same report machine-read.
-Exit codes: 0 clean, 1 Drift-only, 2 any Broken or Missing.
+anchors verified (fresh ones additionally checked for **Ripple**), doc
+links existence-checked, module pages audited for uncovered public
+exports. Default output is a per-page freshness table plus drill-down
+details; `--json` prints the same report machine-read. Exit codes: 0
+clean, 1 Drift or Ripple, 2 any Broken or Missing.
 
 - [PageState](../../src/commands/status.ts "c2d:src/commands/status.ts#PageState:2941edf508871e40.2941edf508871e40") — a page's state is the worst of its anchors
-- [AnchorReport](../../src/commands/status.ts "c2d:src/commands/status.ts#AnchorReport:8a3c74e4decad0fb.8a3c74e4decad0fb") — one anchor: symbol, state, reason, line
-- [LinkReport](../../src/commands/status.ts "c2d:src/commands/status.ts#LinkReport:4942d478f8423140.4942d478f8423140") — one doc link: target, resolved path, state, reason, line
-- [PageReport](../../src/commands/status.ts "c2d:src/commands/status.ts#PageReport:1e2873ac1a19bd02.1e2873ac1a19bd02") — one page: anchors, links, missing symbols, optional note
-- [StatusReport](../../src/commands/status.ts "c2d:src/commands/status.ts#StatusReport:361da8ee7306249c.361da8ee7306249c") — pages plus the broken/drift/missing summary
+- [AnchorReport](../../src/commands/status.ts "c2d:src/commands/status.ts#AnchorReport:c4c20836588a65fc.c4c20836588a65fc") — one anchor: symbol, state, reason, ripples, line
+- [LinkReport](../../src/commands/status.ts "c2d:src/commands/status.ts#LinkReport:54fb9ce2445cabf4.54fb9ce2445cabf4") — one doc link: target, resolved path, state, reason, line
+- [PageReport](../../src/commands/status.ts "c2d:src/commands/status.ts#PageReport:b43b59867045b148.b43b59867045b148") — one page: anchors, links, missing symbols, optional note
+- [StatusReport](../../src/commands/status.ts "c2d:src/commands/status.ts#StatusReport:2d1b338202a40c63.2d1b338202a40c63") — pages plus the broken/drift/ripple/missing summary
 
 The walk through a single check is a [flow](../flows/status-check.md);
 the machinery it calls lives in the [core module](core.md).

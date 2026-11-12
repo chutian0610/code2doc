@@ -5,17 +5,19 @@ import { glob } from 'tinyglobby';
 import { CACHE_FILE } from './config.js';
 import type { Code2docConfig } from './config.js';
 import { extractorForFile } from './extractor/registry.js';
-import type { SymbolRecord } from './extractor/types.js';
+import type { FileRefs, SymbolRecord } from './extractor/types.js';
+import { noRefs } from './extractor/types.js';
 import { toPosix } from './paths.js';
 
-/** Derived state: file hashes + extracted symbols. Rebuildable at any time. */
+/** Derived state: file hashes + extracted symbols + call refs. Rebuildable at any time. */
 export interface CacheData {
   /**
-   * Bumped whenever the fingerprint algorithm changes: a cache from a
-   * different algorithm would silently poison anchor verification.
+   * Bumped whenever the fingerprint algorithm or the cached shape
+   * changes: a cache from a different algorithm would silently poison
+   * anchor verification (v3 adds call refs, ADR-0004).
    */
-  version: 2;
-  files: Record<string, { hash: string; symbols: SymbolRecord[] }>;
+  version: 3;
+  files: Record<string, { hash: string; symbols: SymbolRecord[]; refs: FileRefs }>;
 }
 
 export function fileHash(content: string): string {
@@ -38,7 +40,7 @@ export async function scan(
     ignore: config.exclude,
     dot: false,
   });
-  const cache: CacheData = { version: 2, files: {} };
+  const cache: CacheData = { version: 3, files: {} };
   for (const raw of files.sort()) {
     const rel = toPosix(raw);
     const extractor = extractorForFile(rel);
@@ -46,8 +48,10 @@ export async function scan(
     const code = readFileSync(path.join(root, rel), 'utf8');
     const hash = fileHash(code);
     const prev = previous?.files[rel];
-    const symbols = prev && prev.hash === hash ? prev.symbols : await extractor.extract(code, rel);
-    cache.files[rel] = { hash, symbols };
+    const reuse = prev && prev.hash === hash;
+    const symbols = reuse ? prev.symbols : await extractor.extract(code, rel);
+    const refs = reuse ? prev.refs : ((await extractor.extractRefs?.(code, rel)) ?? noRefs());
+    cache.files[rel] = { hash, symbols, refs };
   }
   return cache;
 }
@@ -56,7 +60,7 @@ export function loadCache(root: string): CacheData | undefined {
   const file = path.join(root, CACHE_FILE);
   if (!existsSync(file)) return undefined;
   const parsed = JSON.parse(readFileSync(file, 'utf8')) as CacheData;
-  if (parsed.version !== 2) return undefined; // foreign algorithm: rebuild
+  if (parsed.version !== 3) return undefined; // foreign algorithm: rebuild
   return parsed;
 }
 

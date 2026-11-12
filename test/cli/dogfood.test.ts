@@ -28,7 +28,7 @@ describe('code2doc dogfood (T6)', () => {
 
   it('status on this repo: exit 0, zero signals', () => {
     expect(code).toBe(0);
-    expect(summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+    expect(summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
     expect(pages.length).toBeGreaterThan(0);
     expect(pages.every((p) => p.state === 'fresh')).toBe(true);
   });

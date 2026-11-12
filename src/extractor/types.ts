@@ -51,9 +51,40 @@ export interface SymbolRecord {
   fingerprint: Fingerprint;
 }
 
+/**
+ * Call references made from one file, the raw material of call edges
+ * (ADR-0004). The query layer only captures *what is called and by whom*;
+ * which caller–callee pairs become edges is the language-agnostic
+ * disambiguation cascade's job.
+ */
+export interface FileRefs {
+  /**
+   * Local import bindings: local name → what it imports and from where.
+   * `imported: ''` marks a default import (unresolvable by name);
+   * namespace imports are not listed (member calls resolve by their
+   * final identifier through the cascade instead).
+   */
+  imports: Record<string, { imported: string; source: string }>;
+  /**
+   * Caller (top-level function/variable symbol name, or the class for
+   * heritage) → final identifiers it references, deduped.
+   */
+  callers: Record<string, string[]>;
+}
+
+/** The empty ref table: no imports, no calls (also the Java baseline until V2-3). */
+export function noRefs(): FileRefs {
+  return { imports: {}, callers: {} };
+}
+
 export interface Extractor {
   languageId: string;
   /** File extensions this extractor claims (with dot, lowercase). */
   extensions: string[];
   extract(code: string, file: string): Promise<SymbolRecord[]>;
+  /**
+   * Call refs per ADR-0004. Absent = the language has no edge extraction
+   * yet: no edges, and no ripple, for its files.
+   */
+  extractRefs?(code: string, file: string): Promise<FileRefs>;
 }
