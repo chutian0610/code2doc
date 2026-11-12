@@ -19,7 +19,7 @@ with its fingerprint**, ready to be pasted into anchors.
 
 ## `status.ts` — the verification pass
 
-[runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:397ee10789769636.cb81432b168e4c39") brings the cache to
+[runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:397ee10789769636.6ec1e4f616c43bed") brings the cache to
 current state, validates the manifest and reports every declared page:
 anchors verified (fresh ones additionally checked for **Ripple**), doc
 links existence-checked, module pages audited for uncovered public

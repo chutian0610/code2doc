@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { changedSince, resolveEdges } from '../src/ripple.js';
+import { changedSince, resolveEdges, ripplesUnder } from '../src/ripple.js';
 import type { CacheData } from '../src/cache.js';
+import type { ChangeMap, EdgeMap } from '../src/ripple.js';
 import type { FileRefs, SymbolRecord } from '../src/extractor/types.js';
 import { noRefs } from '../src/extractor/types.js';
 
@@ -45,6 +46,20 @@ function edgesOf(cache: CacheData): Record<string, string[]> {
     if (callees.length > 0) out[caller] = callees;
   }
   return out;
+}
+
+/** An edge map built directly: `a → b` means a calls b. */
+function edges(pairs: [string, string][]): EdgeMap {
+  const map: EdgeMap = new Map();
+  for (const [caller, callee] of pairs) {
+    map.set(caller, [...(map.get(caller) ?? []), callee].sort());
+  }
+  return map;
+}
+
+/** A change map built directly: `key → state`. */
+function changes(pairs: [string, 'broken' | 'drift'][]): ChangeMap {
+  return new Map(pairs);
 }
 
 describe('resolveEdges — the ADR-0004 cascade', () => {
@@ -176,5 +191,55 @@ describe('changedSince — the cache baseline', () => {
     const curr = cache({ 'src/a.ts': { symbols: [sym('src/a.ts', 'fn')] } });
     expect(changedSince(undefined, curr)).toEqual(new Map());
     expect(changedSince(curr, curr)).toEqual(new Map());
+  });
+});
+
+describe('ripplesUnder — reverse reachability from the change set', () => {
+  const A = 'src/chain.ts#a';
+  const B = 'src/mid.ts#mid';
+  const C = 'src/leaf.ts#leaf';
+
+  it('propagates through any depth: the top anchor names the middle symbol, depth 2', () => {
+    const under = ripplesUnder(edges([[A, B], [B, C]]), changes([[C, 'drift']]));
+    expect(under.get(A)).toEqual([{ symbol: C, state: 'drift', via: B, depth: 2 }]);
+    // the middle symbol is rippled too, one hop closer
+    expect(under.get(B)).toEqual([{ symbol: C, state: 'drift', via: C, depth: 1 }]);
+    // the changed symbol itself is not rippled by its own change
+    expect(under.get(C)).toBeUndefined();
+  });
+
+  it('a broken callee propagates exactly like a drift', () => {
+    const under = ripplesUnder(edges([[A, B], [B, C]]), changes([[C, 'broken']]));
+    expect(under.get(A)).toEqual([{ symbol: C, state: 'broken', via: B, depth: 2 }]);
+  });
+
+  it('keeps the shortest path when several lead to the same stale callee', () => {
+    // a calls b and c; b also calls c — c's change reaches a directly
+    const under = ripplesUnder(edges([[A, B], [A, C], [B, C]]), changes([[C, 'drift']]));
+    expect(under.get(A)).toEqual([{ symbol: C, state: 'drift', via: C, depth: 1 }]);
+  });
+
+  it('survives caller cycles without rippling a symbol by its own change', () => {
+    // mutual recursion: a calls b, b calls a — b's change ripples a, depth 1
+    const under = ripplesUnder(edges([[A, B], [B, A]]), changes([[B, 'drift']]));
+    expect(under.get(A)).toEqual([{ symbol: B, state: 'drift', via: B, depth: 1 }]);
+    expect(under.get(B)).toBeUndefined();
+  });
+
+  it('merges several changed callees per anchor, sorted by symbol', () => {
+    const under = ripplesUnder(edges([[A, C], [A, B]]), changes([
+      [C, 'drift'],
+      [B, 'broken'],
+    ]));
+    // 'src/leaf…' sorts before 'src/mid…'
+    expect(under.get(A)).toEqual([
+      { symbol: C, state: 'drift', via: C, depth: 1 },
+      { symbol: B, state: 'broken', via: B, depth: 1 },
+    ]);
+  });
+
+  it('is empty with no changes or no edges', () => {
+    expect(ripplesUnder(new Map(), changes([[C, 'drift']]))).toEqual(new Map());
+    expect(ripplesUnder(edges([[A, B]]), new Map())).toEqual(new Map());
   });
 });

@@ -151,12 +151,41 @@ export function changedSince(prev: CacheData | undefined, curr: CacheData): Chan
 }
 
 /**
- * One-hop Ripple, V2-1's scope: the fresh anchor's direct callees that
- * changed since the baseline. V2-2 generalizes this to the transitive
- * closure (via + depth beyond the first hop).
+ * Ripple propagation as reverse single-source reachability: from each
+ * changed symbol, walk caller edges backwards and record every symbol
+ * reached, with the shortest path — `via` is the reached symbol's own
+ * callee on that path, `depth` the path's length (one hop at depth 1
+ * means the changed symbol itself). Cost scales with the ancestry of
+ * the change set, not with the anchor count; a changed symbol is never
+ * rippled by its own change.
  */
-export function directRipples(caller: string, edges: EdgeMap, changed: ChangeMap): Ripple[] {
-  return (edges.get(caller) ?? [])
-    .filter((callee) => changed.has(callee))
-    .map((callee) => ({ symbol: callee, state: changed.get(callee)!, via: callee, depth: 1 }));
+export function ripplesUnder(edges: EdgeMap, changed: ChangeMap): Map<string, Ripple[]> {
+  const callersOf = new Map<string, string[]>();
+  for (const [caller, callees] of edges) {
+    for (const callee of callees) {
+      callersOf.set(callee, [...(callersOf.get(callee) ?? []), caller]);
+    }
+  }
+  const under = new Map<string, Ripple[]>();
+  for (const [symbol, state] of changed) {
+    // BFS backwards: the walk's parent yields via, its length yields depth
+    const walk = new Map<string, { via: string; depth: number }>([[symbol, { via: symbol, depth: 0 }]]);
+    const queue = [symbol];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const caller of callersOf.get(current) ?? []) {
+        if (walk.has(caller)) continue; // seen — BFS keeps the shortest path
+        walk.set(caller, { via: current, depth: walk.get(current)!.depth + 1 });
+        queue.push(caller);
+      }
+    }
+    for (const [reached, { via, depth }] of walk) {
+      if (reached === symbol) continue; // never rippled by its own change
+      const list = under.get(reached) ?? [];
+      list.push({ symbol, state, via, depth });
+      under.set(reached, list);
+    }
+  }
+  for (const list of under.values()) list.sort((a, b) => a.symbol.localeCompare(b.symbol));
+  return under;
 }

@@ -4,7 +4,7 @@ What happens between `code2doc status` and the exit code — one pass,
 anchored along the path it walks. (The same pipeline runs with `--json`;
 only the printing differs.)
 
-1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:397ee10789769636.cb81432b168e4c39")
+1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:397ee10789769636.6ec1e4f616c43bed")
    starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 
@@ -31,9 +31,11 @@ only the printing differs.)
    from the *previous* cache (the graph as of the last status, so a
    deleted callee still ripples its caller),
    [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.c5666680021b2283") diffs the two caches,
-   and [directRipples](../../src/ripple.ts "c2d:src/ripple.ts#directRipples:3f12c2e916b5f5ee.43ffd15c95a8030d") names the anchor's
-   stale callees. No previous cache — fresh clone or foreign version —
-   means no baseline and a ripple-silent run.
+   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:0d912deb4c12ffc2.4b5060dcb0557396") walks the change
+   set backwards over caller edges, so a ripple reaches any depth and
+   names each stale callee with `via` and `depth`. No previous cache —
+   fresh clone or foreign version — means no baseline and a
+   ripple-silent run.
    [parseDocLinks](../../src/links.ts "c2d:src/links.ts#parseDocLinks:26178a996c82d648.f9d1589bc70eafdf") resolves the remaining
    in-tree links and [checkDocLink](../../src/links.ts "c2d:src/links.ts#checkDocLink:27cbad79803870e7.9ddbeef5665350b7") tests
    target existence — a renamed page leaves Broken links behind. A

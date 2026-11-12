@@ -49,8 +49,11 @@ nothing (a missing edge is tolerated, a false edge never is).
 [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.c5666680021b2283") diffs the previous
 status cache into the changed set (gone or signature moved → broken,
 body moved → drift; additions are not changes), and
-[directRipples](../../src/ripple.ts "c2d:src/ripple.ts#directRipples:3f12c2e916b5f5ee.43ffd15c95a8030d") reads a fresh anchor's
-one-hop callees out of it — V2-1's scope.
+[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:0d912deb4c12ffc2.4b5060dcb0557396") propagates it:
+reverse single-source reachability from each changed symbol over caller
+edges, keeping the shortest path — `via` is the reached symbol's own
+callee on it, `depth` its length — so closure cost scales with the
+change set, not the anchor count.
 
 - [EdgeMap](../../src/ripple.ts "c2d:src/ripple.ts#EdgeMap:3c402fddea2aa1e0.3c402fddea2aa1e0") — resolved caller → callee keys, both `file#name`
 - [ChangeState](../../src/ripple.ts "c2d:src/ripple.ts#ChangeState:34f10af966d35a15.34f10af966d35a15") — `broken | drift`, how a callee moved
