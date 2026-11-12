@@ -4,7 +4,7 @@ import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
 import { fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
 import type { Extractor, FileRefs, Span, SymbolKind, SymbolRecord } from './types.js';
-import { noRefs } from './types.js';
+import { collapseCallers, noRefs } from './types.js';
 
 /**
  * TS/JS extractor built on web-tree-sitter (WASM) with the official
@@ -262,11 +262,7 @@ export function createTsExtractor(): Extractor {
         const caller = callerOf(callee);
         if (caller) (called[caller] ??= new Set<string>()).add(callee.text);
       }
-      const callers: FileRefs['callers'] = {};
-      for (const caller of Object.keys(called).sort()) {
-        callers[caller] = [...called[caller]].sort();
-      }
-      return { imports, callers };
+      return { imports, callers: collapseCallers(called) };
     },
   };
 }

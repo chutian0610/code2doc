@@ -39,11 +39,16 @@ function isRelative(source: string): boolean {
 }
 
 /**
- * Resolve an import binding to an indexed `file#name`. The specifier is
- * read relative to the importing file; a known extension is stripped so
- * ESM-style `./helper.js` reaches `helper.ts`; index files resolve
- * directory imports. Unresolved → undefined, and the caller must not
- * fall through to name-based guesses: the import claims the name.
+ * Resolve an import binding to an indexed `file#name`, by the form the
+ * language layer normalized its source into. A relative specifier
+ * (TS/JS) is read against the importing file — a known extension is
+ * stripped so ESM-style `./helper.js` reaches `helper.ts`, index files
+ * resolve directory imports. A package-path form (Java, `a/b/C.java`,
+ * always `.java`-suffixed) matches indexed files by unique path
+ * suffix, whatever the package root. Every other non-relative source —
+ * a bare package specifier, which indexes nothing — is ignored, and
+ * the caller must not fall through to name-based guesses: the import
+ * claims the name, an external library yields no edge, not a guess.
  */
 function resolveImported(
   cache: CacheData,
@@ -51,7 +56,15 @@ function resolveImported(
   imported: string,
   source: string,
 ): string | undefined {
-  if (!imported || !isRelative(source)) return undefined;
+  if (!imported) return undefined;
+  if (!isRelative(source)) {
+    if (!source.endsWith('.java')) return undefined; // bare package specifier: ignored
+    const matches = Object.keys(cache.files).filter((p) => p === source || p.endsWith(`/${source}`));
+    if (matches.length !== 1) return undefined;
+    return cache.files[matches[0]].symbols.some((s) => s.name === imported)
+      ? `${matches[0]}#${imported}`
+      : undefined;
+  }
   const base = path.posix.normalize(path.posix.join(path.posix.dirname(file), source));
   const stripped = EXTENSIONS.some((e) => base.endsWith(e))
     ? base.slice(0, base.lastIndexOf('.'))

@@ -27,11 +27,11 @@ only the printing differs.)
    resolves each against the fresh index — symbol gone or signature
    changed → Broken, body changed → Drift, match → fresh. An anchor
    that is itself fresh is then checked for **Ripple** (ADR-0004):
-   [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.98455e2b323045b9") builds the call graph
+   [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:649f5829f247477c.27edceae99fc4d5c") builds the call graph
    from the *previous* cache (the graph as of the last status, so a
    deleted callee still ripples its caller),
-   [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.c5666680021b2283") diffs the two caches,
-   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:0d912deb4c12ffc2.4b5060dcb0557396") walks the change
+   [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:ca5ea69ee3bdc6b7.1b88c85973b5bb5b") diffs the two caches,
+   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:7301f63171cfa2a4.88bc4d1bb1796d33") walks the change
    set backwards over caller edges, so a ripple reaches any depth and
    names each stale callee with `via` and `depth`. No previous cache —
    fresh clone or foreign version — means no baseline and a

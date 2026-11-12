@@ -18,6 +18,8 @@ interface SourceEdits {
   signature: (src: string) => string;
   /** Removal of the edited symbol, leaving valid source behind. */
   symbolGone: (src: string) => string;
+  /** Body-only change of the chain callee (V2-3: the ripple trigger). */
+  calleeBodyOnly: (src: string) => string;
 }
 
 interface ParityFixture {
@@ -30,6 +32,14 @@ interface ParityFixture {
   sourceFile: string;
   /** The symbol every edit targets (a public symbol of sourceFile). */
   editedSymbol: string;
+  /** The anchored caller of the ripple chain, an internal symbol. */
+  chainCaller: string;
+  /** The repo-relative file the chain caller lives in. */
+  chainCallerFile: string;
+  /** The `file#name` the chain caller calls; its body edit triggers the ripple. */
+  chainCallee: string;
+  /** The repo-relative file the chain callee lives in. */
+  chainCalleeFile: string;
   /** init's kind per public symbol of this fixture. */
   publicKinds: Record<string, string>;
   /** init report numbers. */
@@ -46,12 +56,17 @@ const FIXTURES: ParityFixture[] = [
     fixture: path.join(repoRoot, 'test/fixtures/sample-ts'),
     sourceFile: 'src/greet.ts',
     editedSymbol: 'greet',
+    chainCaller: 'usesHelper',
+    chainCallerFile: 'src/helper.ts',
+    chainCallee: 'src/helper.ts#helper',
+    chainCalleeFile: 'src/helper.ts',
     publicKinds: { greet: 'function', Greeter: 'class', usesHelper: 'function' },
     filesScanned: 2,
     modulePublics: ['greet', 'Greeter', 'usesHelper'],
     internalCount: 2,
     edits: {
       bodyOnly: (src) => src.replace("'hello '", "'hi '"),
+      calleeBodyOnly: (src) => src.replace('// internal helper, not exported', 'const done = true;'),
       signature: (src) => src.replace('(name: string)', '(name: string, prefix: string)'),
       symbolGone: (src) => src.replace(
         `export function greet(name: string): string {
@@ -69,12 +84,17 @@ const FIXTURES: ParityFixture[] = [
     fixture: path.join(repoRoot, 'test/fixtures/sample-java'),
     sourceFile: 'src/Greeter.java',
     editedSymbol: 'greet',
+    chainCaller: 'casualGreet',
+    chainCallerFile: 'src/Greeter.java',
+    chainCallee: 'src/Helper.java#helperValue',
+    chainCalleeFile: 'src/Helper.java',
     publicKinds: { Greeter: 'class', greet: 'function' },
     filesScanned: 2,
     modulePublics: ['Greeter', 'greet'],
     internalCount: 3,
     edits: {
       bodyOnly: (src) => src.replace('return prefix + name;', 'return prefix + "dear " + name;'),
+      calleeBodyOnly: (src) => src.replace('return 42;', 'return 43;'),
       signature: (src) => src.replace('greet(String name)', 'greet(String name, String surname)'),
       symbolGone: (src) => src.replace(
         `  public String greet(String name) {
@@ -119,12 +139,20 @@ function paritySuite(fx: ParityFixture): void {
       return dir;
     }
 
-    /** Rewrite the fixture source inside dir via a transform of the pristine file. */
-    function editSource(dir: string, edit: (src: string) => string): void {
-      const pristine = readFileSync(path.join(fx.fixture, fx.sourceFile), 'utf8');
+    /** Rewrite a fixture source inside dir via a transform of the pristine file. */
+    function editSource(dir: string, edit: (src: string) => string, file: string = fx.sourceFile): void {
+      const pristine = readFileSync(path.join(fx.fixture, file), 'utf8');
       const next = edit(pristine);
-      if (next === pristine) throw new Error(`edit is a no-op on ${fx.sourceFile}`);
-      writeFileSync(path.join(dir, fx.sourceFile), next, 'utf8');
+      if (next === pristine) throw new Error(`edit is a no-op on ${file}`);
+      writeFileSync(path.join(dir, file), next, 'utf8');
+    }
+
+    /** An anchor for any symbol of the cache, internal ones included. */
+    function anchorFromCache(dir: string, file: string, name: string): string {
+      const cache = JSON.parse(readFileSync(path.join(dir, '.code2doc', 'cache.json'), 'utf8'));
+      const record = cache.files[file].symbols.find((s: { name: string }) => s.name === name);
+      const { signature, body } = record.fingerprint;
+      return `[${name}](../${file} "c2d:${file}#${name}:${signature}.${body}")`;
     }
 
     const edited = () => `${fx.sourceFile}#${fx.editedSymbol}`;
@@ -204,6 +232,28 @@ function paritySuite(fx: ParityFixture): void {
       const anchor = firstPage(stdout).anchors.find((a) => a.symbol === edited())!;
       expect(anchor.state).toBe('broken');
       expect(anchor.reason).toBe('symbol gone');
+    });
+
+    it('a callee body edit ripples the anchored caller — same JSON shape and exit codes', () => {
+      const dir = copyFixture(fx.fixture, `code2doc-parity-${fx.slug}-`);
+      run(['init'], dir);
+      // the chain caller is internal: its fingerprint comes from the cache, not the init report
+      writePage(dir, 'chain.md', `# the chain\n\n- ${anchorFromCache(dir, fx.chainCallerFile, fx.chainCaller)} drives the flow\n`);
+      declarePages(dir, [{ path: 'chain.md', type: 'flow' }]);
+      expect(run(['status'], dir).code).toBe(0);
+
+      editSource(dir, fx.edits.calleeBodyOnly, fx.chainCalleeFile);
+      const { code, stdout } = run(['status', '--json'], dir);
+      expect(code).toBe(1);
+
+      const page = firstPage(stdout);
+      expect(page.state).toBe('ripple');
+      const anchor = page.anchors.find((a) => a.symbol === `${fx.chainCallerFile}#${fx.chainCaller}`)!;
+      expect(anchor.state).toBe('ripple');
+      expect(anchor.reason).toBe('callee went stale');
+      expect(anchor.ripples).toEqual([
+        { symbol: fx.chainCallee, state: 'drift', via: fx.chainCallee, depth: 1 },
+      ]);
     });
 
     it('public exports without an anchor are reported missing, exit 2', () => {
