@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { checkAnchor, parseAnchors } from '../anchors.js';
+import { checkAnchor, parseAnchors, renameCandidates } from '../anchors.js';
 import type { AnchorReason, AnchorState } from '../anchors.js';
 import { loadCache, saveCache, scan, allSymbols } from '../cache.js';
 import type { CacheData } from '../cache.js';
@@ -22,11 +22,16 @@ export interface AnchorReport {
   state: AnchorState;
   reason: AnchorReason;
   /**
-   * Stale callees under the anchor since the last status (V2-1: direct
-   * callees only). Empty unless the anchor itself is fresh — a stale
-   * anchor is reported directly, not through its callees.
+   * Stale callees under the anchor since the last status, with their
+   * propagation paths. Empty unless the anchor itself is fresh — a
+   * stale anchor is reported directly, not through its callees.
    */
   ripples: Ripple[];
+  /**
+   * Advisory rename guesses (≤3) for a vanished symbol — pure advice,
+   * never a state or an exit code. Empty for every other anchor.
+   */
+  candidates: string[];
   /** 1-based line of the anchor within the page. */
   line: number;
 }
@@ -118,11 +123,15 @@ function reportPage(
     // stale anchor is reported directly, never through its callees.
     const ripples = check.state === 'fresh' ? (ripplesBySymbol.get(`${anchor.file}#${anchor.name}`) ?? []) : [];
     const isRippled = ripples.length > 0;
+    const candidates = check.state === 'broken' && check.reason === 'symbol gone'
+      ? renameCandidates(anchor, cache)
+      : [];
     return {
       symbol: `${anchor.file}#${anchor.name}`,
       state: (isRippled ? 'ripple' : check.state) as AnchorState,
       reason: (isRippled ? 'callee went stale' : check.reason) as AnchorReason,
       ripples,
+      candidates,
       line: anchor.line,
     };
   });
@@ -183,6 +192,9 @@ function detailLines(report: StatusReport, docRoot: string): string[] {
       lines.push(`  ${anchor.state.padEnd(7)} ${anchor.symbol} — ${anchor.reason}`);
       for (const ripple of anchor.ripples) {
         lines.push(`    ${ripple.symbol} ${ripple.state} (via ${ripple.via}, ${ripple.depth} hop${ripple.depth === 1 ? '' : 's'})`);
+      }
+      for (const candidate of anchor.candidates) {
+        lines.push(`    → maybe ${candidate}`);
       }
     }
     for (const link of brokenLinks) {
