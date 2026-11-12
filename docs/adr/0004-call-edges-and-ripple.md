@@ -14,4 +14,4 @@ Edges are extracted from the same tree-sitter parses as symbols (call/member-cal
 
 - Page states become four: `broken > drift > ripple > fresh`. Ripple shares exit code 1 with Drift ("review recommended" tier); v1 automation semantics are unchanged.
 - `CacheData.version` bumps to 3 (old caches rebuild — same guard ADR-0003 established).
-- Broken-by-disappearance anchors gain `candidates` (≤3): an exact signature-fingerprint match elsewhere (a pure move/rename) ranks first, then same-name symbols. Advisory only — it changes no exit code.
+- Broken-by-disappearance anchors gain `candidates` (≤3): an exact signature-fingerprint match elsewhere (a pure move/rename) ranks first, then same-name symbols. Advisory only — it changes no exit code. Implementation note (V2-4): the signature fingerprint carries the declaration's name, so a *pure rename* changes it by construction — a third tier, an unchanged body fingerprint, catches exactly that case; tiers rank signature-exact, same-name, body-exact, and within a tier an untouched body ranks first.

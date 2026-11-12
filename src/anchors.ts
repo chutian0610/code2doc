@@ -1,6 +1,7 @@
+import { allSymbols } from './cache.js';
 import type { CacheData } from './cache.js';
 import { FINGERPRINT_HEX } from './extractor/types.js';
-import type { Fingerprint } from './extractor/types.js';
+import type { Fingerprint, SymbolRecord } from './extractor/types.js';
 
 /**
  * Anchors: plain markdown links whose title carries the whole machine
@@ -119,4 +120,34 @@ export function checkAnchor(anchor: Anchor, cache: CacheData): AnchorCheck {
     return { state: 'drift', reason: 'body changed' };
   }
   return { state: 'fresh', reason: '' };
+}
+
+/**
+ * Advisory rename candidates for a vanished anchor (ADR-0004), ≤3,
+ * ranked: an exact signature fingerprint (a pure move), the same name
+ * elsewhere, then an unchanged body fingerprint — a pure rename's
+ * signature necessarily changed, because it carries the name. Within a
+ * tier an untouched body ranks first, ties break alphabetically, and
+ * the whole list never affects a state or an exit code.
+ */
+export function renameCandidates(anchor: Anchor, cache: CacheData): string[] {
+  const key = (s: { file: string; name: string }) => `${s.file}#${s.name}`;
+  const rank = (s: SymbolRecord): number => {
+    if (s.fingerprint.signature === anchor.fingerprint.signature) return 0;
+    if (s.name === anchor.name) return 1;
+    if (s.fingerprint.body === anchor.fingerprint.body) return 2;
+    return 3;
+  };
+  // within a first- or second-tier tie, an untouched body looks like the purer move/rename
+  const purerMove = (s: SymbolRecord) => s.fingerprint.body === anchor.fingerprint.body;
+  return allSymbols(cache)
+    .filter((s) => key(s) !== key(anchor) && rank(s) < 3)
+    .sort(
+      (a, b) =>
+        rank(a) - rank(b) ||
+        Number(purerMove(b)) - Number(purerMove(a)) ||
+        key(a).localeCompare(key(b)),
+    )
+    .map(key)
+    .slice(0, 3);
 }

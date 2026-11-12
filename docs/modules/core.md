@@ -17,7 +17,12 @@ decodes `c2d:` titles, [parseAnchors](../../src/anchors.ts "c2d:src/anchors.ts#p
 the two into a page's anchor list. Verification is
 [checkAnchor](../../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:693df525b389ace2.3f6fa8c3a096c759"): lookup by file + name only
 (cache-local rows never break on line shifts), then signature mismatch →
-broken, body mismatch → drift, match → fresh.
+broken, body mismatch → drift, match → fresh. A vanished symbol gets
+advisory rename candidates from
+[renameCandidates](../../src/anchors.ts "c2d:src/anchors.ts#renameCandidates:68cb0299f7e0bf9c.a9992f5edfff5f56"):
+a signature-exact match elsewhere (a pure move), a same-name symbol, or
+an unchanged body (a pure rename — the signature carries the name, so
+it necessarily changed); ≤3, never a state or an exit code.
 
 - [Anchor](../../src/anchors.ts "c2d:src/anchors.ts#Anchor:727524e555db432b.727524e555db432b") — one parsed anchor: text, target, file, name, fingerprint, line
 - [MarkdownLink](../../src/anchors.ts "c2d:src/anchors.ts#MarkdownLink:3ce1f36acb740dac.3ce1f36acb740dac") — any inline link, title optional
