@@ -214,3 +214,135 @@ describe('code2doc ripple (V2-1)', () => {
     expect(rebuilt.version).toBe(3);
   });
 });
+
+/**
+ * V2-2: the closure. Ripples propagate through any depth with `via` and
+ * `depth`; a shared helper's change lights every page once, however
+ * wide the fan-out under it.
+ */
+describe('code2doc ripple closure (V2-2)', () => {
+  beforeAll(buildCli);
+
+  /** a → mid (import) → leaf (import): the three-deep chain. */
+  function deepRepo(): { dir: string; a: Sym } {
+    const dir = mkdtempSync(path.join(tmpdir(), 'code2doc-closure-'));
+    mkdirSync(path.join(dir, 'src'), { recursive: true });
+    writeFileSync(path.join(dir, 'src/chain.ts'),
+      "import { mid } from './mid';\nexport function a(): string {\n  return mid();\n}\n", 'utf8');
+    writeFileSync(path.join(dir, 'src/mid.ts'),
+      "import { leaf } from './leaf';\nexport function mid(): string {\n  return leaf();\n}\n", 'utf8');
+    writeFileSync(path.join(dir, 'src/leaf.ts'),
+      "export function leaf(): string {\n  return 'x';\n}\n", 'utf8');
+    const report = JSON.parse(run(['init'], dir).stdout);
+    const a = (report.symbols as Sym[]).find((s) => s.name === 'a')!;
+    writePage(dir, 'flows/chain.md', `# the chain\n\n- ${anchorLink(a)} is the entry\n`);
+    declarePages(dir, [{ path: 'flows/chain.md', type: 'flow' }]);
+    return { dir, a };
+  }
+
+  const editLeaf = (dir: string, next: string) =>
+    writeFileSync(path.join(dir, 'src/leaf.ts'), next, 'utf8');
+  const LEAF_DRIFT = "export function leaf(): string {\n  return 'y';\n}\n";
+  const LEAF_GONE = "const leftover = 1;\n";
+
+  it('a body edit two hops down ripples the top anchor: via = the middle symbol, depth 2', () => {
+    const { dir } = deepRepo();
+    expect(run(['status'], dir).code).toBe(0);
+    editLeaf(dir, LEAF_DRIFT);
+
+    const { code, stdout } = run(['status', '--json'], dir);
+    expect(code).toBe(1);
+    const report = JSON.parse(stdout) as ReportShape;
+    const a = anchor(report, 'flows/chain.md', 'src/chain.ts#a');
+    expect(a.state).toBe('ripple');
+    expect(a.ripples).toEqual([
+      { symbol: 'src/leaf.ts#leaf', state: 'drift', via: 'src/mid.ts#mid', depth: 2 },
+    ]);
+  });
+
+  it('the human drill-down names via and hops at depth 2 (a fresh run, so the baseline stands)', () => {
+    const { dir } = deepRepo();
+    expect(run(['status'], dir).code).toBe(0);
+    editLeaf(dir, LEAF_DRIFT);
+
+    const human = run(['status'], dir).stdout;
+    expect(human).toContain('ripple');
+    expect(human).toContain('(via src/mid.ts#mid, 2 hops)');
+  });
+
+  it('a deletion two hops down propagates broken through the closure', () => {
+    const { dir } = deepRepo();
+    expect(run(['status'], dir).code).toBe(0);
+    editLeaf(dir, LEAF_GONE);
+
+    const { code, stdout } = run(['status', '--json'], dir);
+    expect(code).toBe(1); // no direct anchor on leaf: ripple-only, tier 1
+    const a = anchor(JSON.parse(stdout) as ReportShape, 'flows/chain.md', 'src/chain.ts#a');
+    expect(a.ripples).toEqual([
+      { symbol: 'src/leaf.ts#leaf', state: 'broken', via: 'src/mid.ts#mid', depth: 2 },
+    ]);
+  });
+
+  /** The shared helper after its body edit, fanning out to every caller. */
+  const HELPER_HELLO = "export function helper(): string {\n  return 'hello';\n}\n";
+  const editFanoutHelper = (dir: string) =>
+    writeFileSync(path.join(dir, 'src/helper.ts'), HELPER_HELLO, 'utf8');
+
+  /** three modules calling one shared helper: the fan-out fixture. */
+  function fanoutRepo(): string {
+    const dir = mkdtempSync(path.join(tmpdir(), 'code2doc-fanout-'));
+    mkdirSync(path.join(dir, 'src'), { recursive: true });
+    writeFileSync(path.join(dir, 'src/helper.ts'),
+      "export function helper(): string {\n  return 'hi';\n}\n", 'utf8');
+    const names = ['one', 'two', 'three'];
+    for (const name of names) {
+      writeFileSync(path.join(dir, `src/${name}.ts`),
+        `import { helper } from './helper';\nexport function uses${name}(): string {\n  return helper();\n}\n`, 'utf8');
+    }
+    const report = JSON.parse(run(['init'], dir).stdout);
+    const symbols = report.symbols as Sym[];
+    const links = symbols
+      .filter((s) => s.name.startsWith('uses'))
+      .sort((x, y) => x.name.localeCompare(y.name))
+      .map((s) => `- ${anchorLink(s)} leans on the helper`)
+      .join('\n');
+    writePage(dir, 'flows/fanout.md', `# the fan-out\n\n${links}\n`);
+    declarePages(dir, [{ path: 'flows/fanout.md', type: 'flow' }]);
+    return dir;
+  }
+
+  it('a shared helper change ripples every anchor; the human table stays one line per page', () => {
+    const dir = fanoutRepo();
+    expect(run(['status'], dir).code).toBe(0);
+    editFanoutHelper(dir);
+
+    const { code, stdout } = run(['status', '--json'], dir);
+    expect(code).toBe(1);
+    const report = JSON.parse(stdout) as ReportShape;
+    expect(page(report, 'flows/fanout.md').state).toBe('ripple');
+    expect(report.summary).toEqual({ broken: 0, drift: 0, ripple: 1, missing: 0 });
+    // --json keeps the full per-anchor list, one ripple each
+    for (const name of ['one', 'two', 'three']) {
+      const a = anchor(report, 'flows/fanout.md', `src/${name}.ts#uses${name}`);
+      expect(a.ripples).toEqual([
+        { symbol: 'src/helper.ts#helper', state: 'drift', via: 'src/helper.ts#helper', depth: 1 },
+      ]);
+    }
+  });
+
+  it('the human fan-out output is page-aggregated however many anchors ripple', () => {
+    const dir = fanoutRepo();
+    expect(run(['status'], dir).code).toBe(0);
+    editFanoutHelper(dir);
+
+    const human = run(['status'], dir).stdout;
+    // one table row for the page…
+    expect(human.match(/ripple\s+flow\s+docs\/flows\/fanout\.md/g)).toHaveLength(1);
+    // …drill-down per anchor, one ripple line each
+    for (const name of ['one', 'two', 'three']) {
+      expect(human).toContain(`src/${name}.ts#uses${name} — callee went stale`);
+      expect(human).toContain(`src/helper.ts#helper drift (via src/helper.ts#helper, 1 hop)`);
+    }
+    expect(human).toContain('1 ripple');
+  });
+});
