@@ -54,7 +54,7 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
       'reference',
     ]);
     expect(report.pages.every((p: Page) => p.state === 'fresh')).toBe(true);
-    expect(report.summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+    expect(report.summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
   });
 
   it('default output is a per-page freshness table of the whole tree', () => {

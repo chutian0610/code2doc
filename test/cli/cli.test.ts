@@ -76,7 +76,7 @@ describe('code2doc CLI', () => {
     expect(code).toBe(0);
     const report = JSON.parse(stdout);
     expect(report.pages).toEqual([]);
-    expect(report.summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+    expect(report.summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
   });
 
   it('status prints a human-readable line when --json is absent', () => {

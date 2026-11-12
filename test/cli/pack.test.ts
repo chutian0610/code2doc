@@ -90,7 +90,7 @@ describe('code2doc via npx', () => {
       }),
     );
     // anchor verification (WASM grammars) works from the packed artifact too
-    expect(status.summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+    expect(status.summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
     expect(status.pages).toHaveLength(5);
   }, 180_000);
 });

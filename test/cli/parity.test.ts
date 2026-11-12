@@ -155,7 +155,7 @@ function paritySuite(fx: ParityFixture): void {
       const { code, stdout } = run(['status', '--json'], dir);
       expect(code).toBe(0);
       const report = JSON.parse(stdout);
-      expect(report.summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+      expect(report.summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
       const page = firstPage(stdout);
       expect(page.state).toBe('fresh');
       expect(page.missing).toEqual([]);

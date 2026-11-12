@@ -29,10 +29,11 @@ installed). Two commands, nothing else: `init` and `status`.
   and body. Lookup is by file + name, so line shifts never break
   anchors.
 - **Signals** — `Broken` (symbol gone or signature changed: rewrite the
-  claim), `Drift` (body changed: review the claim), `Missing` (a public
-  symbol of a module with no anchor on its module page: document it).
-  Doc-to-doc links are checked for target existence; a missing target
-  is Broken.
+  claim), `Drift` (body changed: review the claim), `Ripple` (the anchor
+  is fresh but a symbol it calls went stale since the last `status`:
+  review the claim), `Missing` (a public symbol of a module with no
+  anchor on its module page: document it). Doc-to-doc links are checked
+  for target existence; a missing target is Broken.
 
 ## Workflow
 
@@ -81,7 +82,7 @@ code2doc status          # human table + drill-down
 code2doc status --json   # machine-readable, your entry point
 ```
 
-Exit codes: `0` all accurate, `1` Drift-only, `2` any Broken or Missing.
+Exit codes: `0` all accurate, `1` Drift or Ripple, `2` any Broken or Missing.
 Iterate until `status` exits 0 with zero signals, then commit docs,
 manifest and config alongside the code (the `.code2doc/` cache is
 derived state, ignored and rebuildable).

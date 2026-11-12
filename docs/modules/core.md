@@ -1,7 +1,7 @@
 # Core module (`src/`)
 
 The checking machinery: config, manifest, symbol cache, anchor and
-doc-link verification, path helpers. `src/cli.ts` lives here too but
+doc-link verification, call edges, path helpers. `src/cli.ts` lives here too but
 exports nothing — it only dispatches to the
 [commands](commands.md). Everything below is anchored; this page also
 carries the **Missing** guarantee — every public export of `src/` has an
@@ -15,29 +15,47 @@ clickable link for Readers. [parseMarkdownLinks](../../src/anchors.ts "c2d:src/a
 finds every inline link, [parseAnchorTitle](../../src/anchors.ts "c2d:src/anchors.ts#parseAnchorTitle:74447079f1dbf865.ecb55f854815015d")
 decodes `c2d:` titles, [parseAnchors](../../src/anchors.ts "c2d:src/anchors.ts#parseAnchors:ef56a471973b6c71.83fe700be2c5b454") chains
 the two into a page's anchor list. Verification is
-[checkAnchor](../../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:2263d35dec89e338.c6a44873064876d9"): lookup by file + name only
+[checkAnchor](../../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:693df525b389ace2.3f6fa8c3a096c759"): lookup by file + name only
 (cache-local rows never break on line shifts), then signature mismatch →
 broken, body mismatch → drift, match → fresh.
 
 - [Anchor](../../src/anchors.ts "c2d:src/anchors.ts#Anchor:727524e555db432b.727524e555db432b") — one parsed anchor: text, target, file, name, fingerprint, line
 - [MarkdownLink](../../src/anchors.ts "c2d:src/anchors.ts#MarkdownLink:3ce1f36acb740dac.3ce1f36acb740dac") — any inline link, title optional
 - [AnchorPayload](../../src/anchors.ts "c2d:src/anchors.ts#AnchorPayload:95dc76e161fcd68f.95dc76e161fcd68f") — the `c2d:` payload without the link around it
-- [AnchorState](../../src/anchors.ts "c2d:src/anchors.ts#AnchorState:10215553b3e794d8.10215553b3e794d8") — `fresh | drift | broken`, also the page-state ladder
-- [AnchorReason](../../src/anchors.ts "c2d:src/anchors.ts#AnchorReason:607a51d3cac64ff3.607a51d3cac64ff3") — `''` / `symbol gone` / `signature changed` / `body changed`
-- [AnchorCheck](../../src/anchors.ts "c2d:src/anchors.ts#AnchorCheck:1b7bcf635f070956.1b7bcf635f070956") — one check's state plus reason
+- [AnchorState](../../src/anchors.ts "c2d:src/anchors.ts#AnchorState:931b1fd49c036623.931b1fd49c036623") — `fresh | drift | ripple | broken`, also the page-state ladder
+- [AnchorReason](../../src/anchors.ts "c2d:src/anchors.ts#AnchorReason:af8682aecd06428b.af8682aecd06428b") — `''` / `symbol gone` / `signature changed` / `body changed` / `callee went stale`
+- [AnchorCheck](../../src/anchors.ts "c2d:src/anchors.ts#AnchorCheck:c87c463cdc3bc96a.c87c463cdc3bc96a") — one check's state plus reason
 
 ## `cache.ts` — derived state, rebuildable at any time
 
-[CacheData](../../src/cache.ts "c2d:src/cache.ts#CacheData:582ccb7c2dbb2b84.582ccb7c2dbb2b84") is the whole cache: per-file
-content hash plus extracted symbols, version-gated so a foreign
-fingerprint algorithm triggers a rebuild instead of poisoning checks.
-[scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.ef16695fbdfa82c6") globs the config's include/exclude, routes
-each file to its extractor and reuses cached symbols whenever
+[CacheData](../../src/cache.ts "c2d:src/cache.ts#CacheData:abbcd2e46fda7e4c.abbcd2e46fda7e4c") is the whole cache: per-file
+content hash plus extracted symbols plus call refs, version-gated so a
+foreign algorithm triggers a rebuild instead of poisoning checks.
+[scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.a6ea9cb50d1f281b") globs the config's include/exclude, routes
+each file to its extractor and reuses cached symbols and refs whenever
 [fileHash](../../src/cache.ts "c2d:src/cache.ts#fileHash:7b8e31f77c8bcd72.eeea8db4839d041e") matches (ADR-0002: file-level
-detection, symbol-level semantics). [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:097909b3a2dbffdd.ecbb6c5e28fdee01")
+detection, symbol-level semantics). [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:097909b3a2dbffdd.adc5b82b7ebd575d")
 and [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:05c31eec37899133.a49d58e681604d3a") persist it under the ignored
 `.code2doc/`; [allSymbols](../../src/cache.ts "c2d:src/cache.ts#allSymbols:65cf4a853e7409f4.9c59068f7412a0e4") flattens it for
 coverage checks.
+
+## `ripple.ts` — call edges and the cache baseline
+
+[resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.98455e2b323045b9") runs the ADR-0004
+disambiguation cascade over the cached call refs — import resolution →
+same-file uniqueness → global-name uniqueness → no edge — where a name
+claimed by an import never falls through and an ambiguous name yields
+nothing (a missing edge is tolerated, a false edge never is).
+[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.c5666680021b2283") diffs the previous
+status cache into the changed set (gone or signature moved → broken,
+body moved → drift; additions are not changes), and
+[directRipples](../../src/ripple.ts "c2d:src/ripple.ts#directRipples:3f12c2e916b5f5ee.43ffd15c95a8030d") reads a fresh anchor's
+one-hop callees out of it — V2-1's scope.
+
+- [EdgeMap](../../src/ripple.ts "c2d:src/ripple.ts#EdgeMap:3c402fddea2aa1e0.3c402fddea2aa1e0") — resolved caller → callee keys, both `file#name`
+- [ChangeState](../../src/ripple.ts "c2d:src/ripple.ts#ChangeState:34f10af966d35a15.34f10af966d35a15") — `broken | drift`, how a callee moved
+- [ChangeMap](../../src/ripple.ts "c2d:src/ripple.ts#ChangeMap:c56448f26ef729c4.c56448f26ef729c4") — symbols that moved since the last status
+- [Ripple](../../src/ripple.ts "c2d:src/ripple.ts#Ripple:f6cb35cf89fda1ea.f6cb35cf89fda1ea") — one stale callee with its propagation path (`via`, `depth`)
 
 ## `config.ts` — one file, whole scope
 

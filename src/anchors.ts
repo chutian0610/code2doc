@@ -87,11 +87,16 @@ export function parseAnchors(markdown: string): Anchor[] {
   return anchors;
 }
 
-/** Freshness of one anchor (and, as the worst of its anchors, of a page). */
-export type AnchorState = 'fresh' | 'drift' | 'broken';
+/**
+ * Freshness of one anchor (and, as the worst of its anchors, of a page).
+ * `ripple`: the anchor's own fingerprint still matches, but a callee
+ * under it went stale since the last status (ADR-0004) — weaker
+ * evidence than drift, so it ranks below it.
+ */
+export type AnchorState = 'fresh' | 'drift' | 'broken' | 'ripple';
 
 /** '' when fresh; why the anchor is stale otherwise. */
-export type AnchorReason = '' | 'symbol gone' | 'signature changed' | 'body changed';
+export type AnchorReason = '' | 'symbol gone' | 'signature changed' | 'body changed' | 'callee went stale';
 
 export interface AnchorCheck {
   state: AnchorState;

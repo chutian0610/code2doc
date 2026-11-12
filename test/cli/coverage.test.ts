@@ -102,7 +102,7 @@ describe('code2doc module coverage — the Missing signal (T4)', () => {
     expect([...page.missing].sort()).toEqual(
       ['abs', 'clamp', 'sum'].map((name) => `src/widgets/widgets.ts#${name}`),
     );
-    expect(JSON.parse(stdout).summary).toEqual({ broken: 1, drift: 0, missing: 3 });
+    expect(JSON.parse(stdout).summary).toEqual({ broken: 1, drift: 0, ripple: 0, missing: 3 });
   });
 
   it('the default output names the missing symbols and counts them in the summary', () => {
@@ -126,7 +126,7 @@ describe('code2doc module coverage — the Missing signal (T4)', () => {
     const { code, stdout } = run(['status', '--json'], dir);
     expect(code).toBe(0);
     expect(pages(stdout)[0].missing).toEqual([]);
-    expect(JSON.parse(stdout).summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+    expect(JSON.parse(stdout).summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
   });
 
   it('overview / flow / howto / reference pages carry no coverage requirement', () => {
@@ -148,7 +148,7 @@ describe('code2doc module coverage — the Missing signal (T4)', () => {
       expect(page.state).toBe('fresh');
       expect(page.missing).toEqual([]);
     }
-    expect(JSON.parse(stdout).summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+    expect(JSON.parse(stdout).summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
   });
 
   it('internal (non-exported) symbols never count as missing', () => {
@@ -184,7 +184,7 @@ describe('code2doc module coverage — the Missing signal (T4)', () => {
     const page = pages(stdout)[0];
     expect(page.state).toBe('drift');
     expect(page.missing).toEqual([]);
-    expect(JSON.parse(stdout).summary).toEqual({ broken: 0, drift: 1, missing: 0 });
+    expect(JSON.parse(stdout).summary).toEqual({ broken: 0, drift: 1, ripple: 0, missing: 0 });
   });
 
   it('a module mapping to no indexed directory reports the page broken, not silently fresh', () => {

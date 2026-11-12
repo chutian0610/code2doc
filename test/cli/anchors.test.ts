@@ -85,7 +85,7 @@ describe('code2doc anchor verification (T2)', () => {
     );
     expect(page.anchors[0].line).toBeGreaterThan(0);
     const report = JSON.parse(stdout);
-    expect(report.summary).toEqual({ broken: 0, drift: 0, missing: 0 });
+    expect(report.summary).toEqual({ broken: 0, drift: 0, ripple: 0, missing: 0 });
   });
 
   it('default output is human-readable and lists stale anchors with reasons', () => {
@@ -115,7 +115,7 @@ describe('code2doc anchor verification (T2)', () => {
     expect(greet.reason).toBe('body changed');
     const greeter = page.anchors.find((a) => a.symbol === 'src/greet.ts#Greeter')!;
     expect(greeter.state).toBe('fresh');
-    expect(JSON.parse(stdout).summary).toEqual({ broken: 0, drift: 1, missing: 0 });
+    expect(JSON.parse(stdout).summary).toEqual({ broken: 0, drift: 1, ripple: 0, missing: 0 });
   });
 
   it('changing only a string literal inside the body still signals drift', () => {
