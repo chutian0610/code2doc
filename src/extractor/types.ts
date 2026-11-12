@@ -72,9 +72,18 @@ export interface FileRefs {
   callers: Record<string, string[]>;
 }
 
-/** The empty ref table: no imports, no calls (also the Java baseline until V2-3). */
+/** The empty ref table: no imports, no calls. */
 export function noRefs(): FileRefs {
   return { imports: {}, callers: {} };
+}
+
+/** Collapse accumulated per-caller callee sets into a deterministic `callers` map. */
+export function collapseCallers(called: Record<string, Set<string>>): FileRefs['callers'] {
+  const callers: FileRefs['callers'] = {};
+  for (const caller of Object.keys(called).sort()) {
+    callers[caller] = [...called[caller]].sort();
+  }
+  return callers;
 }
 
 export interface Extractor {

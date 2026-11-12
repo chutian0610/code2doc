@@ -3,7 +3,8 @@ import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
 import { fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
-import type { Extractor, Span, SymbolKind, SymbolRecord } from './types.js';
+import type { Extractor, FileRefs, Span, SymbolKind, SymbolRecord } from './types.js';
+import { collapseCallers, noRefs } from './types.js';
 
 /**
  * Java extractor: tree-sitter-java (WASM) behind the same Extractor
@@ -48,6 +49,26 @@ const QUERY = `
 
 /** Comment ranges are cut from hash input, in every hashed span. */
 const COMMENT_QUERY = `[(line_comment) (block_comment)] @comment`;
+
+/**
+ * Call-ref sites per ADR-0004: any method invocation by its name field
+ * (bare, `this.x()`, chained and static-import calls all expose the
+ * final method name there), construction, `extends`/`implements`.
+ * Method references (`this::x`) and field accesses are no invocations
+ * and match nothing.
+ */
+const REF_QUERY = `
+  (method_invocation name: (identifier) @callee)
+  (object_creation_expression type: (type_identifier) @callee)
+  (object_creation_expression type: (scoped_type_identifier) @scoped)
+  (class_declaration superclass: (superclass (type_identifier) @callee))
+  (class_declaration superclass: (superclass (scoped_type_identifier) @scoped))
+  (class_declaration interfaces: (super_interfaces (type_list (type_identifier) @callee)))
+  (class_declaration interfaces: (super_interfaces (type_list (scoped_type_identifier) @scoped)))
+`;
+
+/** Whole import declarations — the FQCN shape is decoded here, not in a query. */
+const IMPORT_QUERY = `(import_declaration) @import`;
 
 /** Body wrappers a method may sit under on its way to the type declaration. */
 const TYPE_BODIES = new Set(['class_body', 'interface_body', 'enum_body', 'enum_body_declarations']);
@@ -101,6 +122,60 @@ function visibilityOf(decl: SyntaxNode): 'public' | 'internal' {
   return body?.type === 'interface_body' ? 'public' : 'internal';
 }
 
+/** Parse a file once; both extract and extractRefs share the preamble. */
+async function parseTree(code: string) {
+  parserInit ??= Parser.init();
+  await parserInit;
+  const language = await getLanguage();
+  const parser = new Parser();
+  parser.setLanguage(language);
+  return { language, tree: parser.parse(code) };
+}
+
+/**
+ * Attribute a ref site: calls and `new` belong to the enclosing
+ * top-level method (methods are symbols here — finer-grained than TS);
+ * heritage belongs to the top-level class, which the walk reaches
+ * without entering a type body. Constructor bodies, field initializers,
+ * nested-type methods and interface heritage have no caller symbol and
+ * yield nothing (a tolerated missing edge, never a false one).
+ */
+function callerOf(callee: SyntaxNode): string | undefined {
+  let sawTypeBody = false;
+  for (let cur = callee.parent; cur; cur = cur.parent) {
+    if (cur.type === 'method_declaration' && isMethodOfTopLevelType(cur)) {
+      return cur.childForFieldName('name')?.text ?? undefined;
+    }
+    if (TYPE_BODIES.has(cur.type)) sawTypeBody = true;
+    if (cur.type === 'class_declaration' && isTopLevelType(cur)) {
+      return sawTypeBody ? undefined : (cur.childForFieldName('name')?.text ?? undefined);
+    }
+  }
+  return undefined;
+}
+
+/** The final segment of a dotted type, e.g. `demo.deep.Thing` → `Thing`. */
+function finalTypeSegment(scoped: SyntaxNode): string | undefined {
+  return scoped.namedChildren.filter((c) => c.type === 'type_identifier').at(-1)?.text;
+}
+
+/**
+ * One import declaration → a normalized binding for the cascade. The
+ * FQCN becomes a package-path suffix (`demo.other.Base` →
+ * `demo/other/Base.java`); a static import binds the member name with
+ * the class as its path; wildcard imports claim no name at all.
+ */
+function importBinding(decl: SyntaxNode): void | [string, { imported: string; source: string }] {
+  if (decl.children.some((c) => c.type === 'asterisk')) return; // wildcard: claims nothing
+  const scoped = decl.namedChildren.find((c) => c.type === 'scoped_identifier');
+  if (!scoped) return;
+  const segments = scoped.text.split('.');
+  const isStatic = decl.children.some((c) => c.type === 'static');
+  const path = (isStatic ? segments.slice(0, -1) : segments).join('/');
+  const name = segments.at(-1)!;
+  return [name, { imported: name, source: `${path}.java` }];
+}
+
 function makeRecord(
   code: Buffer,
   decl: SyntaxNode,
@@ -133,13 +208,7 @@ export function createJavaExtractor(): Extractor {
     languageId: 'java',
     extensions: ['.java'],
     async extract(code, file) {
-      parserInit ??= Parser.init();
-      await parserInit;
-      const language = await getLanguage();
-
-      const parser = new Parser();
-      parser.setLanguage(language);
-      const tree = parser.parse(code);
+      const { language, tree } = await parseTree(code);
       if (!tree) return [];
       const query = new Query(language, QUERY);
       const commentQuery = new Query(language, COMMENT_QUERY);
@@ -163,6 +232,29 @@ export function createJavaExtractor(): Extractor {
         records.push(makeRecord(bytes, decl, name, file, comments));
       }
       return records;
+    },
+    async extractRefs(code) {
+      const { language, tree } = await parseTree(code);
+      if (!tree) return noRefs();
+
+      const imports: FileRefs['imports'] = {};
+      for (const { captures } of new Query(language, IMPORT_QUERY).matches(tree.rootNode)) {
+        const decl = captures.find((c) => c.name === 'import')?.node;
+        const binding = decl && importBinding(decl);
+        if (binding) imports[binding[0]] = binding[1];
+      }
+
+      const called: Record<string, Set<string>> = {};
+      for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
+        const node =
+          captures.find((c) => c.name === 'callee')?.node ??
+          captures.find((c) => c.name === 'scoped')?.node;
+        if (!node) continue;
+        const name = node.type === 'scoped_type_identifier' ? finalTypeSegment(node) : node.text;
+        const caller = name ? callerOf(node) : undefined;
+        if (name && caller) (called[caller] ??= new Set<string>()).add(name);
+      }
+      return { imports, callers: collapseCallers(called) };
     },
   };
 }

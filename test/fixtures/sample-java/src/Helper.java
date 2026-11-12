@@ -2,7 +2,7 @@ package demo;
 
 class Helper {
 
-  int helperValue() {
+  static int helperValue() {
     return 42;
   }
 }

@@ -25,8 +25,8 @@ order:
    for name collisions in `file#name` lookup — that is why Java skips
    constructors), what public means in that language, and where the
    signature ends and the body begins. References:
-   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:c15f724ca6413d99.3f309e8f5f16f794") and
-   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:2686da3769936336.ca5c27ff4b6f2af5").
+   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:c15f724ca6413d99.f0e98fe360b57381") and
+   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.1ac4f3144a3b46d5").
 
 4. **Register it.** Append the factory's instance to the registry list
    in `src/extractor/registry.ts`; dispatch is already extension-based

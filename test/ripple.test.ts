@@ -164,6 +164,62 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
     });
     expect(edgesOf(c)).toEqual({ 'src/greet.ts#fn': ['src/util/index.ts#helper'] });
   });
+
+  it('resolves a package-path source (Java form) by unique indexed-file suffix', () => {
+    // demo/other/Base.java matches src/main/java/demo/other/Base.java —
+    // the package root is whatever the repo's layout happens to be
+    const c = cache({
+      'src/Greeter.java': {
+        symbols: [sym('src/Greeter.java', 'greet')],
+        refs: { imports: { Base: { imported: 'Base', source: 'demo/other/Base.java' } }, callers: { greet: ['Base'] } },
+      },
+      'src/main/java/demo/other/Base.java': { symbols: [sym('src/main/java/demo/other/Base.java', 'Base')] },
+    });
+    expect(edgesOf(c)).toEqual({ 'src/Greeter.java#greet': ['src/main/java/demo/other/Base.java#Base'] });
+  });
+
+  it('an external library (no suffix match) claims the name — never falls through to global guesses', () => {
+    const c = cache({
+      'src/Greeter.java': {
+        symbols: [sym('src/Greeter.java', 'greet')],
+        refs: { imports: { List: { imported: 'List', source: 'java/util/List.java' } }, callers: { greet: ['List'] } },
+      },
+      'src/other/List.java': { symbols: [sym('src/other/List.java', 'List')] },
+    });
+    expect(edgesOf(c)).toEqual({});
+  });
+
+  it('two files matching the same package path, or the name absent from the match, yield no edge', () => {
+    const c = cache({
+      'src/A.java': {
+        symbols: [sym('src/A.java', 'fn')],
+        refs: {
+          imports: {
+            Base: { imported: 'Base', source: 'demo/other/Base.java' }, // two matches below
+            Ifc: { imported: 'Ifc', source: 'demo/other/Ifc.java' },    // matched file lacks the name
+          },
+          callers: { fn: ['Base', 'Ifc'] },
+        },
+      },
+      'src/main/demo/other/Base.java': { symbols: [sym('src/main/demo/other/Base.java', 'Base')] },
+      'src/test/demo/other/Base.java': { symbols: [sym('src/test/demo/other/Base.java', 'Base')] },
+      'src/main/demo/other/Ifc.java': { symbols: [sym('src/main/demo/other/Ifc.java', 'Unrelated')] },
+    });
+    expect(edgesOf(c)).toEqual({});
+  });
+
+  it('a bare package specifier is ignored even when its path happens to suffix-match a file', () => {
+    // TS/JS form: `import { x } from 'pkg/sub.js'` — non-relative and
+    // not a .java package path, so no suffix match, no fall-through
+    const c = cache({
+      'src/greet.ts': {
+        symbols: [sym('src/greet.ts', 'fn')],
+        refs: { imports: { x: { imported: 'x', source: 'pkg/sub.js' } }, callers: { fn: ['x'] } },
+      },
+      'src/pkg/sub.js': { symbols: [sym('src/pkg/sub.js', 'x')] },
+    });
+    expect(edgesOf(c)).toEqual({});
+  });
 });
 
 describe('changedSince — the cache baseline', () => {

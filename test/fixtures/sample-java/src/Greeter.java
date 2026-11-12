@@ -14,6 +14,6 @@ public class Greeter {
   }
 
   String casualGreet(String name) {
-    return "hi " + name;
+    return "hi " + name + Helper.helperValue();
   }
 }

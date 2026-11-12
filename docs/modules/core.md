@@ -41,15 +41,15 @@ coverage checks.
 
 ## `ripple.ts` — call edges and the cache baseline
 
-[resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.98455e2b323045b9") runs the ADR-0004
+[resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:649f5829f247477c.27edceae99fc4d5c") runs the ADR-0004
 disambiguation cascade over the cached call refs — import resolution →
 same-file uniqueness → global-name uniqueness → no edge — where a name
 claimed by an import never falls through and an ambiguous name yields
 nothing (a missing edge is tolerated, a false edge never is).
-[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.c5666680021b2283") diffs the previous
+[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:ca5ea69ee3bdc6b7.1b88c85973b5bb5b") diffs the previous
 status cache into the changed set (gone or signature moved → broken,
 body moved → drift; additions are not changes), and
-[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:0d912deb4c12ffc2.4b5060dcb0557396") propagates it:
+[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:7301f63171cfa2a4.88bc4d1bb1796d33") propagates it:
 reverse single-source reachability from each changed symbol over caller
 edges, keeping the shortest path — `via` is the reached symbol's own
 callee on it, `depth` its length — so closure cost scales with the
