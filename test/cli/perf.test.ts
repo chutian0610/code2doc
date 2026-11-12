@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { anchorLink, buildCli, declarePages, run, writePage } from './helpers';
@@ -36,13 +36,21 @@ function pad(n: number, width = 3): string {
   return String(n).padStart(width, '0');
 }
 
+/** The shared base's (file 0, k 1) return line — the timed closure edit rewrites exactly this. */
+const BASE_RETURN = '  return r0 - 1;';
+
 function tsSource(file: number): string {
   const lines = [`// synthetic module file ${file}`];
+  // every file calls m0/mod0's pub001_0 — the shared base for closure fan-out
+  if (file !== 0) lines.push("import { pub001_0 } from '../m0/mod0';", '');
   for (let k = 1; k <= 50; k++) {
+    const isBase = file === 0 && k === 1; // calls everything else, never itself
     lines.push(
       `export function pub${pad(k)}_${file}(a: number, b: string): number {`,
       `  const r${file} = a * ${k} + b.length;`,
-      `  return r${file} - ${k};`,
+      `  helper${pad((k - 1) % 25 + 1)}_${file}(r${file});`,
+      ...(isBase ? [] : ['  pub001_0(a, b);']),
+      k === 1 && file === 0 ? BASE_RETURN : `  return r${file} - ${k};`,
       `}`,
       '',
     );
@@ -90,7 +98,9 @@ function javaSource(cls: string): string {
     lines.push(
       `  public int pub${pad(k)}(int a, int b) {`,
       `    int r = a * ${k} + b;`,
-      `    return r - ${k};`,
+      `    int h = helper1(a);`,
+      ...(k === 1 ? [] : ['    pub1(a, b);']),
+      `    return r - ${k} + h;`,
       `  }`,
       '',
     );
@@ -197,8 +207,36 @@ describe('code2doc performance acceptance (T7)', () => {
     const { code, stdout, ms } = timedRun(['status', '--json']);
     expect(code).toBe(0);
     expectAllFresh(stdout);
+    // no baseline on a first run: ripple-silent by construction, direct
+    // signals unaffected — the whole tree is fresh, edges and all
     expect(ms).toBeLessThan(STATUS_BUDGET_MS);
     // the rebuild happened transparently: the cache is back
     expect(existsSync(path.join(dir, '.code2doc', 'cache.json'))).toBe(true);
+  }, 60_000);
+
+  it('a shared-base edit ripples thousands of anchors through the closure within the budget (V2-5)', () => {
+    // re-green first: the fresh-clone rebuild above left a current cache
+    expect(run(['status', '--json'], dir).code).toBe(0);
+
+    // mod0's pub001_0 is the shared base every TS pub calls — editing
+    // its body is the worst realistic closure: every caller ripples
+    const base = path.join(dir, 'src', 'm0', 'mod0.ts');
+    const src = readFileSync(base, 'utf8');
+    expect(src).toContain(BASE_RETURN); // the generator and this edit share one source of truth
+    writeFileSync(base, src.replace(BASE_RETURN, '  return r0 - 2;'), 'utf8');
+
+    const { code, stdout, ms } = timedRun(['status', '--json']);
+    expect(code).toBe(1); // review tier — the base's own anchor drifts too
+    const report = JSON.parse(stdout);
+    expect(report.summary.broken).toBe(0);
+    expect(report.summary.ripple).toBeGreaterThan(0);
+    // the fan-out actually reached the callers at scale, not a stub
+    const rippleAnchors = report.pages.reduce(
+      (n: number, p: { anchors: { state: string }[] }) =>
+        n + p.anchors.filter((a) => a.state === 'ripple').length,
+      0,
+    );
+    expect(rippleAnchors).toBeGreaterThan(1_000);
+    expect(ms).toBeLessThan(STATUS_BUDGET_MS);
   }, 60_000);
 });
