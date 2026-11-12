@@ -1,6 +1,6 @@
 {
   "name": "@chutian0610/code2doc",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Model-free CLI that lets AI code agents maintain a living, symbol-anchored doc tree for a codebase",
   "license": "MIT",
   "type": "module",

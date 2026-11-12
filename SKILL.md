@@ -93,9 +93,16 @@ Run `status` before finishing any task that touched code:
 
 - **Broken** — the claim is likely wrong. Rewrite it against the new
   code, then update the anchor's fingerprint (re-run `init` for the new
-  hash). Never paste a new fingerprint over an unrewritten claim.
+  hash). Never paste a new fingerprint over an unrewritten claim. If
+  the symbol merely moved or was renamed, the `→ maybe` suggestions
+  point at it — verify one, don't trust it blindly.
 - **Drift** — the symbol's body changed. Check whether the claim still
   holds: if yes, refresh the fingerprint; if no, rewrite first.
+- **Ripple** — the anchored symbol itself is untouched, but something
+  it calls went stale since the last status. Review recommended, not a
+  rewrite: follow `via` to the stale callee named in the drill-down,
+  read the change, then decide — most ripples end with refreshing
+  nothing, because the claim never described the callee's behavior.
 - **Missing** — a new public symbol with no anchor on its module page.
   Document it, or consciously re-scope (a module page's mapping is a
   promise).
