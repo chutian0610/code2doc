@@ -1,5 +1,6 @@
 import { allSymbols } from './cache.js';
 import type { CacheData } from './cache.js';
+import { symbolId } from './extractor/types.js';
 import type { Ripple } from './ripple.js';
 import { FINGERPRINT_HEX } from './extractor/types.js';
 import type { Fingerprint, SymbolRecord } from './extractor/types.js';
@@ -132,7 +133,7 @@ export function checkAnchor(anchor: Anchor, cache: CacheData): AnchorCheck {
  * the whole list never affects a state or an exit code.
  */
 export function renameCandidates(anchor: Anchor, cache: CacheData): string[] {
-  const key = (s: { file: string; name: string }) => `${s.file}#${s.name}`;
+  const key = (s: { file: string; name: string }) => symbolId(s.file, s.name);
   const rank = (s: SymbolRecord): number => {
     if (s.fingerprint.signature === anchor.fingerprint.signature) return 0;
     if (s.name === anchor.name) return 1;

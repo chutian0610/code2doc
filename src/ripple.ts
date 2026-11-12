@@ -1,5 +1,6 @@
 import type { CacheData } from './cache.js';
 import { extractorForFile } from './extractor/registry.js';
+import { parseSymbolId, symbolId } from './extractor/types.js';
 import type { ImportIndex } from './extractor/types.js';
 
 /**
@@ -64,8 +65,7 @@ export function resolveEdges(cache: CacheData): EdgeMap {
     const names = inFile.get(file) ?? new Map<string, number>();
     for (const symbol of entry.symbols) {
       names.set(symbol.name, (names.get(symbol.name) ?? 0) + 1);
-      const key = `${file}#${symbol.name}`;
-      byName.set(symbol.name, [...(byName.get(symbol.name) ?? []), key]);
+      byName.set(symbol.name, [...(byName.get(symbol.name) ?? []), symbolId(file, symbol.name)]);
     }
     inFile.set(file, names);
   }
@@ -98,15 +98,15 @@ export function resolveEdges(cache: CacheData): EdgeMap {
         }
         const sameFile = inFile.get(file)?.get(name) ?? 0;
         if (sameFile === 1) {
-          resolved.add(`${file}#${name}`);
+          resolved.add(symbolId(file, name));
         } else if (sameFile === 0) {
           const inLanguage = (byName.get(name) ?? []).filter(
-            (key) => langOf(key.slice(0, key.lastIndexOf('#'))) === langOf(file),
+            (key) => langOf(parseSymbolId(key).file) === langOf(file),
           );
           if (inLanguage.length === 1) resolved.add(inLanguage[0]);
         } // 0 candidates or in-language ambiguity → no edge, per the never-false rule
       }
-      if (resolved.size > 0) edges.set(`${file}#${caller}`, [...resolved].sort());
+      if (resolved.size > 0) edges.set(symbolId(file, caller), [...resolved].sort());
     }
   }
   return edges;
@@ -125,7 +125,7 @@ export function changedSince(prev: CacheData | undefined, curr: CacheData): Chan
   for (const [file, entry] of Object.entries(prev.files)) {
     const current = new Map((curr.files[file]?.symbols ?? []).map((s) => [s.name, s]));
     for (const symbol of entry.symbols) {
-      const key = `${file}#${symbol.name}`;
+      const key = symbolId(file, symbol.name);
       const now = current.get(symbol.name);
       if (!now) changed.set(key, 'broken');
       else if (now.fingerprint.signature !== symbol.fingerprint.signature) changed.set(key, 'broken');

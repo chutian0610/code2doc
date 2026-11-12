@@ -21,7 +21,6 @@ describe('TS extractor', () => {
     expect(fn.name).toBe('greet');
     expect(fn.kind).toBe('function');
     expect(fn.visibility).toBe('public');
-    expect(fn.id).toBe('src/greet.ts#greet@0');
 
     // signature span covers the parameter list
     expect(text(CODE, fn.signature)).toContain('name: string');
@@ -172,5 +171,15 @@ describe('fingerprint invariance (T2: no false signals)', () => {
     const [a, b] = await Promise.all([extractOne(BASE), extractOne(edited)]);
     expect(b.fingerprint.signature).not.toBe(a.fingerprint.signature);
     expect(b.fingerprint.body).toBe(a.fingerprint.body);
+  });
+});
+
+describe('SymbolId — the one spelling (architecture review #4)', () => {
+  it('builds and parses file#name keys as a round trip', async () => {
+    const { symbolId, parseSymbolId } = await import('../../src/extractor/types.js');
+    expect(symbolId('src/helper.ts', 'greet')).toBe('src/helper.ts#greet');
+    expect(parseSymbolId('src/helper.ts#greet')).toEqual({ file: 'src/helper.ts', name: 'greet' });
+    // names are identifiers ([\w$]+): they never contain '#', so the
+    // single separator is unambiguous by construction
   });
 });

@@ -6,14 +6,14 @@ anchored here (the **Missing** guarantee for this module).
 
 ## `types.ts` — the contract
 
-[Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:9488e7e173d34bad.9488e7e173d34bad") is the whole interface:
+[Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:6aef985d5b65e524.6aef985d5b65e524") is the whole interface:
 a language id, claimed file extensions, `extract` returning
-[SymbolRecord](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolRecord:559164f730143ba9.559164f730143ba9")s, and an
+[SymbolRecord](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolRecord:2a1b18c8ccab6ec3.2a1b18c8ccab6ec3")s, and an
 optional `extractRefs` returning
-[FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:7ab9e3bb835821ab.7ab9e3bb835821ab") and optional
+[FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:ebb8c0be16b6765e.ebb8c0be16b6765e") and optional
 `resolveImport` (ADR-0005) resolving one
-[ImportBinding](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportBinding:fcc76546ac802ceb.fcc76546ac802ceb") — named or
-default — against the [ImportIndex](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportIndex:c4da34dee42603b9.c4da34dee42603b9")
+[ImportBinding](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportBinding:1ae251464b109af4.1ae251464b109af4") — named or
+default — against the [ImportIndex](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportIndex:49ef9a843e77962b.49ef9a843e77962b")
 probe the core hands in. Both v2 languages implement both; a language
 without them produces no edges and no Ripple. A record's stable
 identity is `<file>#<name>@<signature start row>`; its
@@ -25,9 +25,10 @@ counts for the Missing signal.
 
 - [SymbolKind](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolKind:f5d0046356a20352.f5d0046356a20352") — function / class / interface / type / enum / variable
 - [Span](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Span:3178c8297160d652.3178c8297160d652") — a source region: UTF-8 byte offsets plus start row/col
-- [FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:7ab9e3bb835821ab.7ab9e3bb835821ab") — a file's call refs: import bindings plus caller → called names (ADR-0004)
-- [noRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#noRefs:3d3e1e4f86faa824.31e66a9e97f3e496") — the empty ref table
-- [collapseCallers](../../src/extractor/types.ts "c2d:src/extractor/types.ts#collapseCallers:854de8ed6c2e78c9.f57ebf774bcb9084") — shared, deterministic caller-map normalization, also the baseline for languages without edge extraction
+- [symbolId](../../src/extractor/types.ts "c2d:src/extractor/types.ts#symbolId:b902b4b28cb17fa1.1749aebf78122b5b") / [parseSymbolId](../../src/extractor/types.ts "c2d:src/extractor/types.ts#parseSymbolId:a68cd8727243f2a2.6044fc45ac81749b") — the one spelling of a symbol's `file#name` identity key, used by anchors, edges and reports
+- [FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:ebb8c0be16b6765e.ebb8c0be16b6765e") — a file's call refs: import bindings plus caller → called names (ADR-0004)
+- [noRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#noRefs:4f6939c927a01702.f7254f11f97b32f9") — the empty ref table
+- [collapseCallers](../../src/extractor/types.ts "c2d:src/extractor/types.ts#collapseCallers:1c6a0f88f359f57c.66c97580a9e7c239") — shared, deterministic caller-map normalization, also the baseline for languages without edge extraction
 
 ## `fingerprint.ts` — the parity machinery
 
@@ -48,7 +49,7 @@ entry — see the [howto](../howtos/add-a-language.md).
 
 ## `ts.ts` and `java.ts` — the v1 languages
 
-[createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:7a398749a8408b2d.c89769dc980307b3") covers the
+[createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:7a398749a8408b2d.6d1a4526b9195050") covers the
 TS family on web-tree-sitter with the official grammar (`.tsx`/`.jsx`
 use the tsx grammar, everything else typescript-as-superset). Top-level
 declarations are the symbols; `export` means public. Its `extractRefs`
@@ -57,7 +58,7 @@ captures call/member-call by final identifier, `new` and
 function or variable (heritage to the class); function-as-value
 references are a documented blind spot.
 
-[createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.7a018b6d1f6c923d")
+[createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.db90e30fd7a9ccc7")
 mirrors it on tree-sitter-java: top-level types plus their direct
 methods (constructors excluded — their name is the class's and would
 collide in `file#name` lookup); only `public` is public, with interface

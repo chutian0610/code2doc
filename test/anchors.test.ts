@@ -17,7 +17,6 @@ const BODY2 = 'd'.repeat(16);
 
 function sym(file: string, name: string, signature = SIG, body = BODY): SymbolRecord {
   return {
-    id: `${file}#${name}@0`,
     name,
     kind: 'function',
     file,
