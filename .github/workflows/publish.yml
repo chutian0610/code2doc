@@ -1,0 +1,34 @@
+# Publish to npm from a pushed version tag: bump, commit, tag, push —
+# CI tests and publishes. Auth is OIDC trusted publishing when the
+# package has this workflow registered as a trusted publisher on
+# npmjs.com, or the classic NPM_TOKEN secret when present.
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC for trusted publishing / provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: tag matches package.json version
+        run: |
+          v="v$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$v" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json $v" >&2
+            exit 1
+          fi
+      - run: npm test
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
