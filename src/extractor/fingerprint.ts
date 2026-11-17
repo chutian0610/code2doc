@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { Node as SyntaxNode } from 'web-tree-sitter';
+import { Query } from 'web-tree-sitter';
+import type { Language, Node as SyntaxNode, Tree } from 'web-tree-sitter';
 import { FINGERPRINT_HEX } from './types.js';
 import type { Fingerprint, Span } from './types.js';
 
@@ -12,6 +13,22 @@ import type { Fingerprint, Span } from './types.js';
 
 /** Sortable byte range of a comment node. */
 export type CommentRange = [start: number, end: number];
+
+/**
+ * Every comment range of a tree, sorted — the input `fingerprintOf`
+ * cuts from hash text. The loop lives here, next to the cutting, so
+ * the collection algorithm cannot drift between adapters; the query
+ * text is a grammar fact and stays with each language (TS speaks
+ * `comment`, Java `line_comment`/`block_comment`).
+ */
+export function collectComments(language: Language, tree: Tree, commentQuery: string): CommentRange[] {
+  const comments: CommentRange[] = [];
+  for (const { captures } of new Query(language, commentQuery).matches(tree.rootNode)) {
+    const node = captures.find((c) => c.name === 'comment')?.node;
+    if (node) comments.push([node.startIndex, node.endIndex]);
+  }
+  return comments.sort((a, b) => a[0] - b[0]);
+}
 
 export function spanOf(node: SyntaxNode): Span {
   return {

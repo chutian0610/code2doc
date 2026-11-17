@@ -124,6 +124,29 @@ export function collapseCallers(called: Map<string, Set<string>>): FileRefs['cal
   return callers;
 }
 
+/**
+ * The ref accumulator every extractor feeds: `note(caller, name)`
+ * during the walk, `finish()` for the deterministic `callers` record.
+ * One home for the Map-in/prototype-less-out policy (#21) so adapters
+ * cannot drift apart on it again — the third language inherits this
+ * instead of copying a third spelling.
+ */
+export function refCollector(): {
+  note(caller: string | undefined, name: string): void;
+  finish(): FileRefs['callers'];
+} {
+  const called = new Map<string, Set<string>>();
+  return {
+    note(caller, name) {
+      if (!caller) return;
+      const callees = called.get(caller);
+      if (callees) callees.add(name);
+      else called.set(caller, new Set([name]));
+    },
+    finish: () => collapseCallers(called),
+  };
+}
+
 export interface Extractor {
   languageId: string;
   /** File extensions this extractor claims (with dot, lowercase). */

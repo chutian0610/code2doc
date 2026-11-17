@@ -1,10 +1,10 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
-import { fingerprintOf, spanOf } from './fingerprint.js';
+import { collectComments, fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
 import type { Extractor, FileRefs, Span, SymbolKind, SymbolRecord } from './types.js';
-import { collapseCallers, noRefs, symbolId } from './types.js';
+import { noRefs, refCollector, symbolId } from './types.js';
 
 /**
  * TS/JS extractor built on web-tree-sitter (WASM) with the official
@@ -44,7 +44,7 @@ const QUERY = `
   (lexical_declaration (variable_declarator name: (identifier) @name)) @decl
 `;
 
-/** Comment ranges are cut from hash input, in every hashed span. */
+/** Comment node shape of the TS/JS grammars. */
 const COMMENT_QUERY = `(comment) @comment`;
 
 /**
@@ -227,14 +227,7 @@ export function createTsExtractor(): Extractor {
       const { language, tree } = await parseTree(code, file);
       if (!tree) return [];
       const query = new Query(language, QUERY);
-      const commentQuery = new Query(language, COMMENT_QUERY);
-
-      const comments: CommentRange[] = [];
-      for (const { captures } of commentQuery.matches(tree.rootNode)) {
-        const node = captures.find((c) => c.name === 'comment')?.node;
-        if (node) comments.push([node.startIndex, node.endIndex]);
-      }
-      comments.sort((a, b) => a[0] - b[0]);
+      const comments = collectComments(language, tree, COMMENT_QUERY);
 
       const bytes = Buffer.from(code, 'utf8');
       const records: SymbolRecord[] = [];
@@ -310,13 +303,7 @@ export function createTsExtractor(): Extractor {
         }
       }
 
-      const called = new Map<string, Set<string>>();
-      const note = (caller: string | undefined, name: string) => {
-        if (!caller) return;
-        const callees = called.get(caller);
-        if (callees) callees.add(name);
-        else called.set(caller, new Set([name]));
-      };
+      const refs = refCollector();
       for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
         const member = captures.find((c) => c.name === 'member')?.node;
         if (member) {
@@ -333,14 +320,14 @@ export function createTsExtractor(): Extractor {
           const prop = member.childForFieldName('property')?.text;
           if (!source || !prop) continue;
           imports[prop] = { kind: 'named', imported: prop, source };
-          note(callerOf(member), prop);
+          refs.note(callerOf(member), prop);
           continue;
         }
         const callee = captures.find((c) => c.name === 'callee')?.node;
         if (!callee) continue;
-        note(callerOf(callee), callee.text);
+        refs.note(callerOf(callee), callee.text);
       }
-      return { imports, callers: collapseCallers(called) };
+      return { imports, callers: refs.finish() };
     },
     resolveImport(file, binding, index) {
       if (binding.kind !== 'named') return undefined; // default: claimed, unresolvable by name

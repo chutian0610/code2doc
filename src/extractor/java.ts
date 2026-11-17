@@ -1,10 +1,10 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
-import { fingerprintOf, spanOf } from './fingerprint.js';
+import { collectComments, fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
 import type { Extractor, FileRefs, ImportBinding, Span, SymbolKind, SymbolRecord } from './types.js';
-import { collapseCallers, noRefs, symbolId } from './types.js';
+import { noRefs, refCollector, symbolId } from './types.js';
 
 /**
  * Java extractor: tree-sitter-java (WASM) behind the same Extractor
@@ -49,9 +49,6 @@ const QUERY = `
   (method_declaration name: (identifier) @name) @decl
 `;
 
-/** Comment ranges are cut from hash input, in every hashed span. */
-const COMMENT_QUERY = `[(line_comment) (block_comment)] @comment`;
-
 /**
  * Call-ref sites per ADR-0004: any method invocation by its name field
  * (bare, `this.x()`, chained and static-import calls all expose the
@@ -68,6 +65,9 @@ const REF_QUERY = `
   (class_declaration interfaces: (super_interfaces (type_list (type_identifier) @callee)))
   (class_declaration interfaces: (super_interfaces (type_list (scoped_type_identifier) @scoped)))
 `;
+
+/** Comment node shapes of the Java grammar. */
+const COMMENT_QUERY = `[(line_comment) (block_comment)] @comment`;
 
 /** Whole import declarations — the FQCN shape is decoded here, not in a query. */
 const IMPORT_QUERY = `(import_declaration) @import`;
@@ -212,14 +212,7 @@ export function createJavaExtractor(): Extractor {
       const { language, tree } = await parseTree(code);
       if (!tree) return [];
       const query = new Query(language, QUERY);
-      const commentQuery = new Query(language, COMMENT_QUERY);
-
-      const comments: CommentRange[] = [];
-      for (const { captures } of commentQuery.matches(tree.rootNode)) {
-        const node = captures.find((c) => c.name === 'comment')?.node;
-        if (node) comments.push([node.startIndex, node.endIndex]);
-      }
-      comments.sort((a, b) => a[0] - b[0]);
+      const comments = collectComments(language, tree, COMMENT_QUERY);
 
       const bytes = Buffer.from(code, 'utf8');
       const records: SymbolRecord[] = [];
@@ -247,20 +240,17 @@ export function createJavaExtractor(): Extractor {
         if (binding) imports[binding[0]] = binding[1];
       }
 
-      const called = new Map<string, Set<string>>();
+      const refs = refCollector();
       for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
         const node =
           captures.find((c) => c.name === 'callee')?.node ??
           captures.find((c) => c.name === 'scoped')?.node;
         if (!node) continue;
         const name = node.type === 'scoped_type_identifier' ? finalTypeSegment(node) : node.text;
-        const caller = name ? callerOf(node) : undefined;
-        if (!name || !caller) continue;
-        const callees = called.get(caller);
-        if (callees) callees.add(name);
-        else called.set(caller, new Set([name]));
+        if (!name) continue;
+        refs.note(callerOf(node), name);
       }
-      return { imports, callers: collapseCallers(called) };
+      return { imports, callers: refs.finish() };
     },
     resolveImport(_file, binding, index) {
       if (binding.kind !== 'named') return undefined;

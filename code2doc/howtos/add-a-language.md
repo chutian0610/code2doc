@@ -7,16 +7,16 @@ Adding a language is config and tests, not core surgery. The steps, in
 order:
 
 1. **Implement the contract.** One file in `src/extractor/`, exporting a
-   factory returning an [Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:b047f35747d93444.b047f35747d93444"):
+   factory returning an [Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:38e77578458770bd.38e77578458770bd"):
    a language id, the extensions it claims, and one `extract` that
    returns [SymbolRecord](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolRecord:2a1b18c8ccab6ec3.2a1b18c8ccab6ec3")s —
    name, kind, spans, [Visibility](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Visibility:75e723b0d2e1b720.75e723b0d2e1b720")
    and the [Fingerprint](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Fingerprint:0ea1cb3c50e1c4a4.0ea1cb3c50e1c4a4") pair.
 
 2. **Share the fingerprint machinery.** Do not hash by hand: run the
-   declaration's spans through [fingerprintOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#fingerprintOf:e4530e3ecd77d069.6dc6a76977da76ed")
+   declaration's spans through [fingerprintOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#fingerprintOf:d0d749fafd450f2a.93f9479fdda81ea1")
    with the file's comment ranges ([CommentRange](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#CommentRange:43459109b54c06be.43459109b54c06be"),
-   [spanOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#spanOf:395ac4b77fd8ecf2.8637e31997a480ba") for the spans). Two
+   [spanOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#spanOf:9a327a1cfa5ea5bd.a19e90b18b5b369d") for the spans). Two
    extractors that hash the same text the same way are what makes anchor
    verification language-blind.
 
@@ -25,8 +25,8 @@ order:
    for name collisions in `file#name` lookup — that is why Java skips
    constructors), what public means in that language, and where the
    signature ends and the body begins. References:
-   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:fbcd91d3c65dfb9e.1d4bd5002995ca00") and
-   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.43328805647a50a0").
+   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:fbcd91d3c65dfb9e.dc3b1b0718c97b15") and
+   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.abdc83efb10dff2f").
 
 4. **Register it.** Append the factory's instance to the registry list
    in `src/extractor/registry.ts`; dispatch is already extension-based

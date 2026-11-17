@@ -6,7 +6,7 @@ anchored here (the **Missing** guarantee for this module).
 
 ## `types.ts` — the contract
 
-[Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:b047f35747d93444.b047f35747d93444") is the whole interface:
+[Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:38e77578458770bd.38e77578458770bd") is the whole interface:
 a language id, claimed file extensions, `extract` returning
 [SymbolRecord](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolRecord:2a1b18c8ccab6ec3.2a1b18c8ccab6ec3")s, and an
 optional `extractRefs` returning
@@ -30,15 +30,20 @@ counts for the Missing signal.
 - [FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:c4eed43707585445.c4eed43707585445") — a file's call refs: import bindings plus caller → called names (ADR-0004)
 - [noRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#noRefs:ec758286af05b25e.0de77cf74141a70b") — the empty ref table
 - [collapseCallers](../../src/extractor/types.ts "c2d:src/extractor/types.ts#collapseCallers:dc6b7fe6e728f663.a22fb2573bec9509") — shared, deterministic caller-map normalization (Map in, prototype-less record out: caller names are arbitrary identifiers, and `toString`/`__proto__` must stay plain keys), also the baseline for languages without edge extraction
+- [refCollector](../../src/extractor/types.ts "c2d:src/extractor/types.ts#refCollector:3b4a1465e311e735.c003cfe782e432f3") — the accumulator every extractor feeds (`note` during the walk, `finish` for the record); one home for the Map-in/prototype-less-out policy so adapters cannot drift on it again
 
 ## `fingerprint.ts` — the parity machinery
 
 Two extractors hashing the same text the same way make anchor
-verification language-blind. [fingerprintOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#fingerprintOf:e4530e3ecd77d069.6dc6a76977da76ed")
+verification language-blind. [fingerprintOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#fingerprintOf:d0d749fafd450f2a.93f9479fdda81ea1")
 builds each hash input by cutting [CommentRange](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#CommentRange:43459109b54c06be.43459109b54c06be")s
 at AST granularity (a regex would misfire on `//` inside strings) and
 collapsing whitespace runs — comment-only and reflow edits stay fresh,
-real changes never hide. [spanOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#spanOf:395ac4b77fd8ecf2.8637e31997a480ba")
+real changes never hide. [spanOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#spanOf:9a327a1cfa5ea5bd.a19e90b18b5b369d")
+[collectComments](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#collectComments:dc58ee80716c28f5.f0fa9bbd63ada933")
+gathers those ranges from a tree — the loop lives next to the cutting so
+collection cannot drift between adapters, while the query text stays with
+each language (TS speaks `comment`, Java `line_comment`/`block_comment`).
 converts a tree-sitter node to a [Span](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Span:3178c8297160d652.3178c8297160d652").
 
 ## `registry.ts` — dispatch by extension
@@ -50,7 +55,7 @@ entry — see the [howto](../howtos/add-a-language.md).
 
 ## `ts.ts` and `java.ts` — the v1 languages
 
-[createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:fbcd91d3c65dfb9e.1d4bd5002995ca00") covers the
+[createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:fbcd91d3c65dfb9e.dc3b1b0718c97b15") covers the
 TS family on web-tree-sitter with the official grammar (`.tsx`/`.jsx`
 use the tsx grammar, everything else typescript-as-superset). Top-level
 declarations are the symbols — classes and abstract classes alike (a
@@ -71,7 +76,7 @@ falls through, so requiring an external package that shares a name with
 a repo symbol mints no false edge; relative sources resolve through the
 same `resolveImport` machinery as ESM.
 
-[createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.43328805647a50a0")
+[createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.abdc83efb10dff2f")
 mirrors it on tree-sitter-java: top-level types plus their direct
 methods (constructors excluded — their name is the class's and would
 collide in `file#name` lookup); only `public` is public, with interface
