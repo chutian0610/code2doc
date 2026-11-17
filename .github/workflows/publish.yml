@@ -18,8 +18,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22 # npm 11.x carries trusted-publishing support
+          node-version: 22
           registry-url: https://registry.npmjs.org
+      # Node 22 bundles npm 10.x; trusted publishing needs npm >= 11.5
+      - run: npm install -g npm@latest
       - run: npm ci
       - name: tag matches package.json version
         run: |
