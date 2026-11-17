@@ -1,7 +1,7 @@
 # Publish to npm from a pushed version tag: bump, commit, tag, push —
-# CI tests and publishes. Auth is OIDC trusted publishing when the
-# package has this workflow registered as a trusted publisher on
-# npmjs.com, or the classic NPM_TOKEN secret when present.
+# CI tests and publishes. Auth is OIDC trusted publishing: register
+# this workflow as a trusted publisher for the package on npmjs.com
+# (package Settings → trusted publishing; owner, repo, publish.yml).
 name: publish
 
 on:
@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # OIDC for trusted publishing / provenance
+      id-token: write # OIDC identity for npm trusted publishing
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # npm 11.x carries trusted-publishing support
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - name: tag matches package.json version
@@ -30,5 +30,3 @@ jobs:
           fi
       - run: npm test
       - run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
