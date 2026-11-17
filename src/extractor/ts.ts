@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
+import type { Tree } from 'web-tree-sitter';
 import { collectComments, fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
 import type { Extractor, FileRefs, Span, SymbolKind, SymbolRecord } from './types.js';
@@ -219,6 +220,119 @@ async function parseTree(code: string, file: string) {
   return { language, tree: parser.parse(code) };
 }
 
+/**
+ * The claims pass' output: the currency the core consumes, plus the
+ * namespace probe the calls pass needs. Claiming a name — ESM import,
+ * CommonJS require, or a namespace member call — is this language's way
+ * of telling the cascade "this name is spoken for here" (ADR-0004/0005).
+ */
+interface Claims {
+  imports: FileRefs['imports'];
+  /**
+   * Claim `prop` to the module `base` names when base is a namespace
+   * import, answering that module's source; undefined when the receiver
+   * names anything else — then the member call yields nothing (#26).
+   */
+  claimViaNamespace(base: string | undefined, prop: string): string | undefined;
+}
+
+/**
+ * The claims pass: ESM import bindings and CommonJS requires are both
+ * claim factories — the bound name never falls through to same-file or
+ * global guesses (#25), relative sources resolve through the same
+ * resolveImport machinery as ESM, bare ones stay claimed.
+ */
+function readImportClaims(language: Language, tree: Tree): Claims {
+  // prototype-less from the start: local names are arbitrary
+  // identifiers, and `toString`/`__proto__` must be plain keys (#21)
+  const imports: FileRefs['imports'] = Object.create(null);
+  const namespaces = new Map<string, string>(); // namespace local name → its source
+  for (const { captures } of new Query(language, IMPORT_QUERY).matches(tree.rootNode)) {
+    const spec = captures.find((c) => c.name === 'spec')?.node;
+    const local = captures.find((c) => c.name === 'local')?.node;
+    const ns = captures.find((c) => c.name === 'ns')?.node;
+    const source = captures.find((c) => c.name === 'source')?.node;
+    if (!source) continue;
+    if (spec) {
+      const imported = spec.childForFieldName('name')?.text ?? '';
+      const alias = spec.childForFieldName('alias')?.text ?? imported;
+      imports[alias] = { kind: 'named', imported, source: source.text };
+    } else if (local) {
+      // default import: the binding is claimed but unresolvable by name —
+      // the disambiguation steps must not fall through to same-file/global guesses
+      imports[local.text] = { kind: 'default', source: source.text };
+    } else if (ns) {
+      namespaces.set(ns.text, source.text);
+    }
+  }
+
+  for (const { captures } of new Query(language, REQUIRE_QUERY).matches(tree.rootNode)) {
+    const fn = captures.find((c) => c.name === 'fn')?.node;
+    const source = captures.find((c) => c.name === 'source')?.node;
+    if (!source || fn?.text !== 'require') continue;
+    // `const <pattern> = require('<source>')` — the call's parent is the declarator
+    const declarator = captures.find((c) => c.name === 'call')?.node?.parent;
+    if (declarator?.type !== 'variable_declarator') continue;
+    const name = declarator.childForFieldName('name');
+    if (!name) continue;
+    if (name.type === 'identifier') {
+      // whole-module binding: claimed, unresolvable by name — like a default import
+      imports[name.text] = { kind: 'default', source: source.text };
+    } else if (name.type === 'object_pattern') {
+      for (const prop of name.namedChildren) {
+        const key = prop.childForFieldName('key');
+        const value = prop.childForFieldName('value');
+        const fallback = prop.childForFieldName('left'); // `{ a = 1 }`
+        if (key && value) imports[value.text] = { kind: 'named', imported: key.text, source: source.text };
+        else if (fallback) imports[fallback.text] = { kind: 'named', imported: fallback.text, source: source.text };
+        else if (prop.type === 'shorthand_property_identifier_pattern') {
+          imports[prop.text] = { kind: 'named', imported: prop.text, source: source.text };
+        }
+      }
+    }
+  }
+
+  return {
+    imports,
+    claimViaNamespace(base, prop) {
+      const source = base === undefined ? undefined : namespaces.get(base);
+      if (!source) return undefined;
+      imports[prop] = { kind: 'named', imported: prop, source };
+      return source;
+    },
+  };
+}
+
+/**
+ * The calls pass: a member call's name is ours only through a namespace
+ * import — walk left to the receiver chain's base identifier and ask the
+ * claims (#26). Any other receiver — a call result, a field, a builtin —
+ * names some object's method, and methods are not symbols in this
+ * language family: field-measured, every such name the
+ * global-uniqueness step resolved was a false edge. Bare calls, `new`
+ * and heritage go straight to the shared accumulator.
+ */
+function readCalls(language: Language, tree: Tree, claims: Claims): FileRefs['callers'] {
+  const refs = refCollector();
+  for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
+    const member = captures.find((c) => c.name === 'member')?.node;
+    if (member) {
+      let base = member.childForFieldName('object');
+      while (base?.type === 'member_expression') base = base.childForFieldName('object');
+      const prop = member.childForFieldName('property')?.text;
+      if (!prop) continue;
+      const source = claims.claimViaNamespace(base?.type === 'identifier' ? base.text : undefined, prop);
+      if (!source) continue;
+      refs.note(callerOf(member), prop);
+      continue;
+    }
+    const callee = captures.find((c) => c.name === 'callee')?.node;
+    if (!callee) continue;
+    refs.note(callerOf(callee), callee.text);
+  }
+  return refs.finish();
+}
+
 export function createTsExtractor(): Extractor {
   return {
     languageId: 'ts-family',
@@ -249,85 +363,8 @@ export function createTsExtractor(): Extractor {
       const { language, tree } = await parseTree(code, file);
       if (!tree) return noRefs();
 
-      // prototype-less from the start: local names are arbitrary
-      // identifiers, and `toString`/`__proto__` must be plain keys (#21)
-      const imports: FileRefs['imports'] = Object.create(null);
-      const namespaces = new Map<string, string>(); // namespace local name → its source
-      for (const { captures } of new Query(language, IMPORT_QUERY).matches(tree.rootNode)) {
-        const spec = captures.find((c) => c.name === 'spec')?.node;
-        const local = captures.find((c) => c.name === 'local')?.node;
-        const ns = captures.find((c) => c.name === 'ns')?.node;
-        const source = captures.find((c) => c.name === 'source')?.node;
-        if (!source) continue;
-        if (spec) {
-          const imported = spec.childForFieldName('name')?.text ?? '';
-          const alias = spec.childForFieldName('alias')?.text ?? imported;
-          imports[alias] = { kind: 'named', imported, source: source.text };
-        } else if (local) {
-          // default import: the binding is claimed but unresolvable by name —
-          // the disambiguation steps must not fall through to same-file/global guesses
-          imports[local.text] = { kind: 'default', source: source.text };
-        } else if (ns) {
-          namespaces.set(ns.text, source.text);
-        }
-      }
-
-      // CommonJS requires are claims like imports (#25): the bound name
-      // must never fall through to same-file or global guesses — requiring
-      // an external package that shares a name with a repo symbol would
-      // otherwise mint a false edge. Relative sources resolve through the
-      // same resolveImport machinery as ESM; bare ones stay claimed.
-      for (const { captures } of new Query(language, REQUIRE_QUERY).matches(tree.rootNode)) {
-        const fn = captures.find((c) => c.name === 'fn')?.node;
-        const source = captures.find((c) => c.name === 'source')?.node;
-        if (!source || fn?.text !== 'require') continue;
-        // `const <pattern> = require('<source>')` — the call's parent is the declarator
-        const declarator = captures.find((c) => c.name === 'call')?.node?.parent;
-        if (declarator?.type !== 'variable_declarator') continue;
-        const name = declarator.childForFieldName('name');
-        if (!name) continue;
-        if (name.type === 'identifier') {
-          // whole-module binding: claimed, unresolvable by name — like a default import
-          imports[name.text] = { kind: 'default', source: source.text };
-        } else if (name.type === 'object_pattern') {
-          for (const prop of name.namedChildren) {
-            const key = prop.childForFieldName('key');
-            const value = prop.childForFieldName('value');
-            const fallback = prop.childForFieldName('left'); // `{ a = 1 }`
-            if (key && value) imports[value.text] = { kind: 'named', imported: key.text, source: source.text };
-            else if (fallback) imports[fallback.text] = { kind: 'named', imported: fallback.text, source: source.text };
-            else if (prop.type === 'shorthand_property_identifier_pattern') {
-              imports[prop.text] = { kind: 'named', imported: prop.text, source: source.text };
-            }
-          }
-        }
-      }
-
-      const refs = refCollector();
-      for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
-        const member = captures.find((c) => c.name === 'member')?.node;
-        if (member) {
-          // A member call's name is ours only through a namespace import:
-          // walk left to the receiver chain's base identifier and, when it
-          // names an imported module, claim the final identifier to that
-          // module (#26). Any other receiver — a call result, a field, a
-          // builtin — names some object's method, and methods are not
-          // symbols in this language family: field-measured, every such
-          // name the global-uniqueness step resolved was a false edge.
-          let base = member.childForFieldName('object');
-          while (base?.type === 'member_expression') base = base.childForFieldName('object');
-          const source = base?.type === 'identifier' ? namespaces.get(base.text) : undefined;
-          const prop = member.childForFieldName('property')?.text;
-          if (!source || !prop) continue;
-          imports[prop] = { kind: 'named', imported: prop, source };
-          refs.note(callerOf(member), prop);
-          continue;
-        }
-        const callee = captures.find((c) => c.name === 'callee')?.node;
-        if (!callee) continue;
-        refs.note(callerOf(callee), callee.text);
-      }
-      return { imports, callers: refs.finish() };
+      const claims = readImportClaims(language, tree);
+      return { imports: claims.imports, callers: readCalls(language, tree, claims) };
     },
     resolveImport(file, binding, index) {
       if (binding.kind !== 'named') return undefined; // default: claimed, unresolvable by name
