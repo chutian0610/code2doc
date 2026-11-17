@@ -1,12 +1,15 @@
 {
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
   "exclude": [
     "node_modules/**",
     "dist/**",
+    "code2doc/**",
     "docs/**",
     ".code2doc/**",
     "**/*.d.ts"
   ],
-  "docRoot": "docs",
+  "docRoot": "code2doc",
   "language": "en"
 }

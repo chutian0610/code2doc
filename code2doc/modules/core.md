@@ -86,7 +86,7 @@ interface the status pass queries.
 
 [Code2docConfig](../../src/config.ts "c2d:src/config.ts#Code2docConfig:6273b87446a35359.6273b87446a35359") holds include/exclude
 globs, doc root and doc language; [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7")
-fills gaps from [defaultConfig](../../src/config.ts "c2d:src/config.ts#defaultConfig:800dfddfa27602a2.7674f7a31618e991") and
+fills gaps from [defaultConfig](../../src/config.ts "c2d:src/config.ts#defaultConfig:800dfddfa27602a2.cb2f4fe11baddab7") and
 [saveConfig](../../src/config.ts "c2d:src/config.ts#saveConfig:7167d8c756ff0d9b.69fc16873d99f8fd") writes
 [CONFIG_FILE](../../src/config.ts "c2d:src/config.ts#CONFIG_FILE:eed85beddc3696fd.f9ea712816df3bba") (`code2doc.config.json`).
 [CACHE_DIR](../../src/config.ts "c2d:src/config.ts#CACHE_DIR:8c412effebaf70c9.0d6a56f5968394a3") and

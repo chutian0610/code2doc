@@ -67,7 +67,7 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
     expect(stdout).toContain('TYPE');
     expect(stdout).toContain('PAGE');
     for (const page of ['overview.md', 'modules/greet.md', 'flows/greeting.md', 'howtos/greet-a-user.md', 'reference/symbols.md']) {
-      expect(stdout).toContain(path.join('docs', page));
+      expect(stdout).toContain(path.join('code2doc', page));
     }
     expect(stdout).toContain('5 pages: all accurate.');
   });
@@ -152,26 +152,27 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
       { path: 'modules/greet.md', type: 'module', module: 'src' },
     ]);
     writePage(dir, 'overview.md', `# Overview\n\n${anchor}\n`);
-    // from docs/modules/, ../../docs/overview.md exits the tree to the repo
-    // root and re-enters: it renders to the existing docs/overview.md, so it
-    // must resolve and stay fresh. ../docs/overview.md, in contrast, renders
-    // to the missing docs/docs/overview.md — a genuinely wrong link.
+    // from code2doc/modules/, ../../code2doc/overview.md exits the tree to
+    // the repo root and re-enters: it renders to the existing
+    // code2doc/overview.md, so it must resolve and stay fresh.
+    // ../code2doc/overview.md, in contrast, renders to the missing
+    // code2doc/code2doc/overview.md — a genuinely wrong link.
     writePage(
       dir,
       'modules/greet.md',
-      `# src module\n\n${anchor}\n\n[round trip](../../docs/overview.md) and [typo](../docs/overview.md)\n`,
+      `# src module\n\n${anchor}\n\n[round trip](../../code2doc/overview.md) and [typo](../code2doc/overview.md)\n`,
     );
 
     const { code, stdout } = run(['status', '--json'], dir);
     expect(code).toBe(2);
     const module_ = pages(stdout).find((p) => p.path === 'modules/greet.md')!;
     expect(module_.state).toBe('broken');
-    const roundTrip = module_.links.find((l) => l.target === '../../docs/overview.md')!;
+    const roundTrip = module_.links.find((l) => l.target === '../../code2doc/overview.md')!;
     expect(roundTrip.state).toBe('fresh');
     expect(roundTrip.resolved).toBe('overview.md');
-    const typo = module_.links.find((l) => l.target === '../docs/overview.md')!;
+    const typo = module_.links.find((l) => l.target === '../code2doc/overview.md')!;
     expect(typo.state).toBe('broken');
-    expect(typo.resolved).toBe('docs/overview.md');
+    expect(typo.resolved).toBe('code2doc/overview.md');
   });
 
   it('an anchor whose URL points nowhere is still fresh — the URL is never parsed', () => {

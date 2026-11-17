@@ -60,15 +60,15 @@ export function anchorLink(sym: Sym): string {
 /** Declare the manifest the Operator would plan. */
 export function declarePages(dir: string, entries: unknown[]): void {
   writeFileSync(
-    path.join(dir, 'docs', 'manifest.json'),
+    path.join(dir, 'code2doc', 'manifest.json'),
     JSON.stringify({ pages: entries }, null, 2),
     'utf8',
   );
 }
 
-/** Write a page under docs/ as the Operator would. */
+/** Write a page under the doc root as the Operator would. */
 export function writePage(dir: string, file: string, markdown: string): void {
-  const abs = path.join(dir, 'docs', file);
+  const abs = path.join(dir, 'code2doc', file);
   mkdirSync(path.dirname(abs), { recursive: true });
   writeFileSync(abs, markdown, 'utf8');
 }

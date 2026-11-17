@@ -127,7 +127,7 @@ describe('code2doc ripple (V2-1)', () => {
     const { code, stdout } = run(['status'], pages.dir);
     expect(code).toBe(1);
     expect(stdout).toContain('ripple');
-    expect(stdout).toContain('docs/flows/chain.md');
+    expect(stdout).toContain('code2doc/flows/chain.md');
     expect(stdout).toContain('src/chain.ts#a — callee went stale');
     expect(stdout).toContain('src/helper.ts#helper drift');
     expect(stdout).toContain('1 ripple');
@@ -164,7 +164,7 @@ describe('code2doc ripple (V2-1)', () => {
 
     const { code, stdout } = run(['status'], dir);
     expect(code).toBe(1);
-    expect(stdout).toMatch(/ripple\s+flow\s+docs\/flows\/chain\.md/);
+    expect(stdout).toMatch(/ripple\s+flow\s+code2doc\/flows\/chain\.md/);
   });
 
   it('the fresh-clone first run is ripple-silent: direct signals only, no baseline', () => {
@@ -337,7 +337,7 @@ describe('code2doc ripple closure (V2-2)', () => {
 
     const human = run(['status'], dir).stdout;
     // one table row for the page…
-    expect(human.match(/ripple\s+flow\s+docs\/flows\/fanout\.md/g)).toHaveLength(1);
+    expect(human.match(/ripple\s+flow\s+code2doc\/flows\/fanout\.md/g)).toHaveLength(1);
     // …drill-down per anchor, one ripple line each
     for (const name of ['one', 'two', 'three']) {
       expect(human).toContain(`src/${name}.ts#uses${name} — callee went stale`);

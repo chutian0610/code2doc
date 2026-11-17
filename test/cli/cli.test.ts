@@ -14,17 +14,17 @@ describe('code2doc CLI', () => {
 
     const report = JSON.parse(stdout);
     expect(report.configPath).toBe('code2doc.config.json');
-    expect(report.manifestPath).toBe(path.join('docs', 'manifest.json'));
+    expect(report.manifestPath).toBe(path.join('code2doc', 'manifest.json'));
     expect(existsSync(path.join(dir, 'code2doc.config.json'))).toBe(true);
-    expect(existsSync(path.join(dir, 'docs', 'manifest.json'))).toBe(true);
-    const manifest = JSON.parse(readFileSync(path.join(dir, 'docs', 'manifest.json'), 'utf8'));
+    expect(existsSync(path.join(dir, 'code2doc', 'manifest.json'))).toBe(true);
+    const manifest = JSON.parse(readFileSync(path.join(dir, 'code2doc', 'manifest.json'), 'utf8'));
     expect(manifest.pages).toEqual([]);
     // doc-tree skeleton: a README explaining the manifest-driven tree
-    expect(existsSync(path.join(dir, 'docs', 'README.md'))).toBe(true);
+    expect(existsSync(path.join(dir, 'code2doc', 'README.md'))).toBe(true);
     expect(existsSync(path.join(dir, '.code2doc', 'cache.json'))).toBe(true);
 
     const config = JSON.parse(readFileSync(path.join(dir, 'code2doc.config.json'), 'utf8'));
-    expect(config.docRoot).toBe('docs');
+    expect(config.docRoot).toBe('code2doc');
     expect(config.include.length).toBeGreaterThan(0);
   });
 
@@ -59,7 +59,7 @@ describe('code2doc CLI', () => {
     const dir = copyFixture(tsFixture, 'code2doc-');
     run(['init'], dir);
     // the Operator's own formatting is their call — a re-init must not churn it
-    const file = path.join(dir, 'docs', 'manifest.json');
+    const file = path.join(dir, 'code2doc', 'manifest.json');
     const handShaped = '{"pages":[{"path":"overview.md","type":"overview"}]}';
     writeFileSync(file, handShaped, 'utf8');
 

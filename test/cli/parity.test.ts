@@ -163,8 +163,8 @@ function paritySuite(fx: ParityFixture): void {
       expect(code).toBe(0);
 
       expect(existsSync(path.join(dir, 'code2doc.config.json'))).toBe(true);
-      expect(existsSync(path.join(dir, 'docs', 'manifest.json'))).toBe(true);
-      expect(existsSync(path.join(dir, 'docs', 'README.md'))).toBe(true);
+      expect(existsSync(path.join(dir, 'code2doc', 'manifest.json'))).toBe(true);
+      expect(existsSync(path.join(dir, 'code2doc', 'README.md'))).toBe(true);
       expect(existsSync(path.join(dir, '.code2doc', 'cache.json'))).toBe(true);
 
       const report = JSON.parse(stdout);

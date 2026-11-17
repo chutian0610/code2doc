@@ -22,12 +22,12 @@ export function defaultConfig(): Code2docConfig {
     exclude: [
       'node_modules/**',
       'dist/**',
-      'docs/**',
+      'code2doc/**',
       `${CACHE_DIR}/**`,
       'coverage/**',
       '**/*.d.ts',
     ],
-    docRoot: 'docs',
+    docRoot: 'code2doc',
     language: 'en',
   };
 }

@@ -36,7 +36,7 @@ describe('code2doc dogfood (T6)', () => {
   it('the dogfood tree covers overview, module, flow and howto pages', () => {
     const types = new Set(pages.map((p) => p.type));
     for (const type of ['overview', 'module', 'flow', 'howto']) {
-      expect(types.has(type), `no ${type} page declared in docs/manifest.json`).toBe(true);
+      expect(types.has(type), `no ${type} page declared in code2doc/manifest.json`).toBe(true);
     }
   });
 });

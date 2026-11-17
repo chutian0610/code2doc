@@ -27,14 +27,14 @@ function setupWithPage(dir: string, symbolNames: string[], extraMarkdown = ''): 
 
   const body = chosen.map((s: Sym) => `- ${anchorLink(s)} does its thing.`).join('\n');
   writeFileSync(
-    path.join(dir, 'docs', 'module.md'),
+    path.join(dir, 'code2doc', 'module.md'),
     `# src module\n\n${body}\n${extraMarkdown}\n`,
     'utf8',
   );
   // A reference page: anchor freshness is this suite's subject, and module
   // pages additionally enforce export coverage (T4) — keep the two apart.
   writeFileSync(
-    path.join(dir, 'docs', 'manifest.json'),
+    path.join(dir, 'code2doc', 'manifest.json'),
     JSON.stringify({ pages: [{ path: 'module.md', type: 'reference' }] }, null, 2),
     'utf8',
   );
@@ -218,7 +218,7 @@ export function greet(name: string): string {
     const dir = copyFixture(tsFixture, 'code2doc-anchor-');
     run(['init'], dir);
     writeFileSync(
-      path.join(dir, 'docs', 'manifest.json'),
+      path.join(dir, 'code2doc', 'manifest.json'),
       JSON.stringify({ pages: [{ path: 'planned.md', type: 'overview' }] }, null, 2),
       'utf8',
     );

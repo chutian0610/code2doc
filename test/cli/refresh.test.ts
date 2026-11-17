@@ -28,12 +28,12 @@ function setupWithAnchor(dir: string): Sym {
   const greet = report.symbols.find((s: Sym) => s.name === 'greet');
   if (!greet) throw new Error('greet not in init report');
   writeFileSync(
-    path.join(dir, 'docs', 'module.md'),
+    path.join(dir, 'code2doc', 'module.md'),
     `# claims\n\n- ${anchorLink(greet)} does its thing.\n`,
     'utf8',
   );
   writeFileSync(
-    path.join(dir, 'docs', 'manifest.json'),
+    path.join(dir, 'code2doc', 'manifest.json'),
     JSON.stringify({ pages: [{ path: 'module.md', type: 'reference' }] }, null, 2),
     'utf8',
   );
@@ -72,7 +72,7 @@ describe('refresh-anchors script', () => {
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('module.md: 1 anchor(s) refreshed');
 
-    const page = readFileSync(path.join(dir, 'docs', 'module.md'), 'utf8');
+    const page = readFileSync(path.join(dir, 'code2doc', 'module.md'), 'utf8');
     expect(page).toContain('does its thing.'); // the claim as written
     expect(page).not.toContain('hello '); // …with the new hashes in its anchor
     expect(run(['status', '--json'], dir).code).toBe(0);
@@ -81,25 +81,25 @@ describe('refresh-anchors script', () => {
   it('is a no-op when every anchor is current', () => {
     const dir = copyFixture(tsFixture, 'code2doc-refresh-');
     setupWithAnchor(dir);
-    const before = readFileSync(path.join(dir, 'docs', 'module.md'), 'utf8');
+    const before = readFileSync(path.join(dir, 'code2doc', 'module.md'), 'utf8');
 
     const result = refresh(dir);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('all anchors already current');
-    expect(readFileSync(path.join(dir, 'docs', 'module.md'), 'utf8')).toBe(before);
+    expect(readFileSync(path.join(dir, 'code2doc', 'module.md'), 'utf8')).toBe(before);
   });
 
   it('leaves unresolvable anchors untouched and fails the run', () => {
     const dir = copyFixture(tsFixture, 'code2doc-refresh-');
     setupWithAnchor(dir);
-    const before = readFileSync(path.join(dir, 'docs', 'module.md'), 'utf8');
+    const before = readFileSync(path.join(dir, 'code2doc', 'module.md'), 'utf8');
     writeFileSync(path.join(dir, 'src', 'greet.ts'), `${GREETER}\n`, 'utf8'); // greet gone
 
     const result = refresh(dir);
     expect(result.code).toBe(1);
     expect(result.stderr).toContain('src/greet.ts#greet — symbol gone');
     // a vanished symbol is a rewrite, never a refresh: page stays as written
-    expect(readFileSync(path.join(dir, 'docs', 'module.md'), 'utf8')).toBe(before);
+    expect(readFileSync(path.join(dir, 'code2doc', 'module.md'), 'utf8')).toBe(before);
     expect(run(['status', '--json'], dir).code).toBe(2);
   });
 });

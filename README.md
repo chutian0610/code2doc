@@ -70,10 +70,10 @@ your agent's instructions) and the agent knows the whole loop.
 
 ## In this repo
 
-code2doc documents itself — see [docs/overview.md](docs/overview.md);
+code2doc documents itself — see [code2doc/overview.md](code2doc/overview.md);
 the dogfood tree is guarded by the test suite. Architecture decisions
 live in [docs/adr/](docs/adr/). Adding a language is one extractor
-plus tests ([how](docs/howtos/add-a-language.md)); currently
+plus tests ([how](code2doc/howtos/add-a-language.md)); currently
 TypeScript/TSX, JavaScript/JSX and Java.
 
 MIT license.
