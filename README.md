@@ -81,10 +81,17 @@ past. Wiring it up:
    anchored pages and iterates `status` to green.
 3. From then on the agent runs `status` before finishing any code
    change and answers the signals per the table above.
-4. Questions become durable: a real question the agent answers is
-   distilled into a `howto` page; the next session loads the tree
-   instead of re-deriving the codebase — a fresh page is verified
-   context.
+4. Questions become durable. Ask the agent a real question about the
+   code — once it answers, the answer is distilled into a `howto`
+   page: the question as the title, the answer as anchored prose.
+   Usually the agent does it on its own (a good answer will be asked
+   again); a nudge works too — *"save that as a howto."* For example:
+
+   > Why does my `@Singleton` binding create a new instance per
+   `Provider` injection?
+
+   The next session loads the tree instead of re-deriving the
+   codebase — a fresh page is verified context.
 
 The machine interface is `status --json` plus the exit codes; the
 `→ maybe` rename hints and `via`/`depth` drill-downs let the agent act
