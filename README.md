@@ -64,9 +64,31 @@ npx @chutian0610/code2doc status --json   # machine report for agents
 After any code change, the agent re-runs `status`: Broken claims get
 rewritten, Drift reviewed, new public symbols documented. User
 questions that got a real answer are distilled into `howto` pages that
-age under the same rules. The full operator workflow is taught in
-[SKILL.md](SKILL.md) — copy it into your repo (or reference it from
-your agent's instructions) and the agent knows the whole loop.
+age under the same rules.
+
+## With an AI agent
+
+code2doc is model-free by design: **judgment** (what to document,
+where to anchor) is the agent's; **verification** (does the claim
+still match the code) is a hash comparison no model can talk its way
+past. Wiring it up:
+
+1. Copy [SKILL.md](SKILL.md) into the repo, or reference it from your
+   agent's instructions (AGENTS.md, CLAUDE.md, a skills folder). It
+   teaches the whole Operator workflow.
+2. First tree, one sentence to the agent: *"Follow SKILL.md: document
+   this repo, smallest module first."* It plans the manifest, writes
+   anchored pages and iterates `status` to green.
+3. From then on the agent runs `status` before finishing any code
+   change and answers the signals per the table above.
+4. Questions become durable: a real question the agent answers is
+   distilled into a `howto` page; the next session loads the tree
+   instead of re-deriving the codebase — a fresh page is verified
+   context.
+
+The machine interface is `status --json` plus the exit codes; the
+`→ maybe` rename hints and `via`/`depth` drill-downs let the agent act
+on a signal without re-reading the whole repo.
 
 ## In this repo
 
