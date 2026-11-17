@@ -68,6 +68,14 @@ const IMPORT_QUERY = `
   (import_statement (import_clause (identifier) @local) source: (string (string_fragment) @source))
 `;
 
+/**
+ * Calls taking a string first argument — the shape a `require` has (#25).
+ * Filtering by callee text happens in code; the query just narrows the walk.
+ */
+const REQUIRE_QUERY = `
+  (call_expression function: (identifier) @fn arguments: (arguments (string (string_fragment) @source))) @call
+`;
+
 /** How a declaration type maps to kind + signature/body spans. */
 interface DeclShape {
   kind: SymbolKind;
@@ -261,6 +269,37 @@ export function createTsExtractor(): Extractor {
           // default import: the binding is claimed but unresolvable by name —
           // the disambiguation steps must not fall through to same-file/global guesses
           imports[local.text] = { kind: 'default', source: source.text };
+        }
+      }
+
+      // CommonJS requires are claims like imports (#25): the bound name
+      // must never fall through to same-file or global guesses — requiring
+      // an external package that shares a name with a repo symbol would
+      // otherwise mint a false edge. Relative sources resolve through the
+      // same resolveImport machinery as ESM; bare ones stay claimed.
+      for (const { captures } of new Query(language, REQUIRE_QUERY).matches(tree.rootNode)) {
+        const fn = captures.find((c) => c.name === 'fn')?.node;
+        const source = captures.find((c) => c.name === 'source')?.node;
+        if (!source || fn?.text !== 'require') continue;
+        // `const <pattern> = require('<source>')` — the call's parent is the declarator
+        const declarator = captures.find((c) => c.name === 'call')?.node?.parent;
+        if (declarator?.type !== 'variable_declarator') continue;
+        const name = declarator.childForFieldName('name');
+        if (!name) continue;
+        if (name.type === 'identifier') {
+          // whole-module binding: claimed, unresolvable by name — like a default import
+          imports[name.text] = { kind: 'default', source: source.text };
+        } else if (name.type === 'object_pattern') {
+          for (const prop of name.namedChildren) {
+            const key = prop.childForFieldName('key');
+            const value = prop.childForFieldName('value');
+            const fallback = prop.childForFieldName('left'); // `{ a = 1 }`
+            if (key && value) imports[value.text] = { kind: 'named', imported: key.text, source: source.text };
+            else if (fallback) imports[fallback.text] = { kind: 'named', imported: fallback.text, source: source.text };
+            else if (prop.type === 'shorthand_property_identifier_pattern') {
+              imports[prop.text] = { kind: 'named', imported: prop.text, source: source.text };
+            }
+          }
         }
       }
 

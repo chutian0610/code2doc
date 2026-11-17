@@ -37,7 +37,7 @@ function cache(files: Record<string, { symbols?: SymbolRecord[]; refs?: FileRefs
   for (const [file, entry] of Object.entries(files)) {
     out[file] = { hash: 'h', symbols: entry.symbols ?? [], refs: entry.refs ?? noRefs() };
   }
-  return { version: 5, files: out };
+  return { version: 6, files: out };
 }
 
 /** Edge view keyed `caller → callees`, skipping empty callers. */
@@ -218,6 +218,20 @@ describe('resolveEdges — the ADR-0004 cascade', () => {
         refs: { imports: { x: { kind: 'named', imported: 'x', source: 'pkg/sub.js' } }, callers: { fn: ['x'] } },
       },
       'src/pkg/sub.js': { symbols: [sym('src/pkg/sub.js', 'x')] },
+    });
+    expect(edgesOf(c)).toEqual({});
+  });
+
+  it('a require-claimed name never falls through to a same-named repo symbol (#25)', () => {
+    // the CJS scenario the claim exists to stop: `const { pick } = require('lodash')`
+    // where the repo happens to have its own pick — without the claim the
+    // global-uniqueness step would mint a false edge to it
+    const c = cache({
+      'src/greet.cjs': {
+        symbols: [sym('src/greet.cjs', 'fn')],
+        refs: { imports: { pick: { kind: 'named', imported: 'pick', source: 'lodash' } }, callers: { fn: ['pick'] } },
+      },
+      'src/pick.ts': { symbols: [sym('src/pick.ts', 'pick')] },
     });
     expect(edgesOf(c)).toEqual({});
   });

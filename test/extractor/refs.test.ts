@@ -155,3 +155,43 @@ describe('TS extractor — resolveImport (ADR-0005)', () => {
     expect(resolve({ kind: 'default', source: './helper' })).toBeUndefined();
   });
 });
+
+describe('TS extractor — CommonJS requires (#25)', () => {
+  it('captures destructured requires as named claims, aliased keys included', async () => {
+    const code = `const { helper } = require('./helper');
+const { a: aliased } = require('../util/x');
+function fn(): void {
+  helper();
+  aliased();
+}
+module.exports = { fn };
+`;
+    const { callers, imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.cjs'));
+    expect(imports.helper).toEqual({ kind: 'named', imported: 'helper', source: './helper' });
+    expect(imports.aliased).toEqual({ kind: 'named', imported: 'a', source: '../util/x' });
+    expect(callers.fn).toContain('helper');
+    expect(callers.fn).toContain('aliased');
+  });
+
+  it('captures a whole-module require as a default claim — claimed, unresolvable by name', async () => {
+    const code = `const helper = require('lodash-helper');
+function fn(): void {
+  helper();
+}
+module.exports = { fn };
+`;
+    const { imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.cjs'));
+    expect(imports.helper).toEqual({ kind: 'default', source: 'lodash-helper' });
+  });
+
+  it('ignores non-require calls that merely take a string first argument', async () => {
+    const code = `function fn(): void {
+  import('./lazy');
+  tag\`template\`;
+}
+module.exports = { fn };
+`;
+    const { imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.cjs'));
+    expect(Object.keys(imports)).toHaveLength(0);
+  });
+});

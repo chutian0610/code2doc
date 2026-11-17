@@ -8,9 +8,9 @@ only the printing differs.)
    starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 
-2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.43749b7712370f0f") globs the
+2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.ac2dbf9ae7d3c9e5") globs the
    config's scope and parses every file whose content hash differs from
-   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:38e70f711a1e42ee.008067ee7d41fab0") had — unchanged files keep
+   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:38e70f711a1e42ee.4ce9bc20b701def4") had — unchanged files keep
    their cached symbols, so a fresh clone and a warm one reach the same
    state. [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:e977b693b56fe94a.c0d806b90168a75f") persists it; the cache
    is derived state, safe to delete and rebuild.

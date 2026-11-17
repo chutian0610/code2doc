@@ -50,7 +50,7 @@ entry — see the [howto](../howtos/add-a-language.md).
 
 ## `ts.ts` and `java.ts` — the v1 languages
 
-[createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:9cbef269613c0229.f26d7cf1b7031b65") covers the
+[createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:7fd2f264b359b7bf.dd88dabbc3ea252e") covers the
 TS family on web-tree-sitter with the official grammar (`.tsx`/`.jsx`
 use the tsx grammar, everything else typescript-as-superset). Top-level
 declarations are the symbols — classes and abstract classes alike (a
@@ -59,7 +59,12 @@ public. Its `extractRefs`
 captures call/member-call by final identifier, `new` and
 `extends`/`implements`, attributing each site to its enclosing top-level
 function or variable (heritage to the class); function-as-value
-references are a documented blind spot.
+references are a documented blind spot. CommonJS `require`s become
+claims like imports (#25): a destructured require yields named
+bindings, a whole-module require a default one — the claimed name never
+falls through, so requiring an external package that shares a name with
+a repo symbol mints no false edge; relative sources resolve through the
+same `resolveImport` machinery as ESM.
 
 [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.43328805647a50a0")
 mirrors it on tree-sitter-java: top-level types plus their direct

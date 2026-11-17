@@ -25,7 +25,7 @@ order:
    for name collisions in `file#name` lookup — that is why Java skips
    constructors), what public means in that language, and where the
    signature ends and the body begins. References:
-   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:9cbef269613c0229.f26d7cf1b7031b65") and
+   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:7fd2f264b359b7bf.dd88dabbc3ea252e") and
    [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.43328805647a50a0").
 
 4. **Register it.** Append the factory's instance to the registry list
