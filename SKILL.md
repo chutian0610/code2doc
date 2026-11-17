@@ -1,6 +1,6 @@
 ---
 name: code2doc-operator
-description: Maintain a living, symbol-anchored doc tree for a codebase with the code2doc CLI — init, write anchored pages, distill how-tos from user questions, and keep status green. Use when asked to document a repo, update its docs after code changes, or answer recurring codebase questions durably.
+description: Maintain a living, symbol-anchored doc tree for a codebase with the code2doc CLI — init, write anchored pages, distill how-tos from user questions, and keep status green. Use when asked to document a repo, update its docs after code changes, answer recurring codebase questions durably, or load a documented repo's verified context at session start.
 ---
 
 # Operating code2doc
@@ -125,6 +125,24 @@ Distill it:
 
 A how-to ages under the same rules as everything else — when the code
 it describes moves, the page says so loudly. That is the point.
+
+### 7. Load the tree, don't re-derive it
+
+At the start of any session that works on a documented codebase —
+before analyzing code cold — load what the tree already knows:
+
+1. `code2doc status --json` — the tree's health in one call: which
+   pages are fresh (their claims verified against the code as of this
+   cache) and which carry signals.
+2. Read the manifest, then the pages relevant to the task: `overview`
+   for structure, `howto` pages first among the rest — each is a
+   question someone actually asked, answered and anchored.
+3. Trust fresh pages as verified context. For a stale page, read its
+   drill-down first and treat the flagged claims as unverified.
+
+A fresh how-to is an answer that still holds — using it beats
+re-deriving it. When you answer a question the tree has no page for,
+that is section 6. This is the loop: sessions distill, sessions load.
 
 ## Rules of thumb
 
