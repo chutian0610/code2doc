@@ -62,7 +62,9 @@ age under the same rules. The full operator workflow is taught in
 ## In this repo
 
 code2doc documents itself — see [docs/overview.md](docs/overview.md)
-(the dogfood tree is guarded by the test suite). Architecture decisions
+(the dogfood tree is guarded by the test suite; after code changes whose
+claims still hold, `npm run refresh-anchors` rewrites the anchors'
+fingerprints). Architecture decisions
 live in [docs/adr/](docs/adr/). Currently extracting TypeScript/TSX,
 JavaScript/JSX and Java; adding a language is one extractor plus tests
 ([how](docs/howtos/add-a-language.md)).

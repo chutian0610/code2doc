@@ -35,6 +35,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "refresh-anchors": "node scripts/refresh-anchors.mjs",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
