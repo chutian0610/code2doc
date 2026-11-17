@@ -20,13 +20,19 @@ tool guarantees nothing goes silently stale:
 - Every factual claim carries an **anchor** — a plain markdown link
   whose title carries a **fingerprint** (two hashes: signature + body)
   of the symbol it points at. Humans click the link; the tool verifies
-  the fingerprint.
+  the fingerprint. An anchor looks like this in a page:
+
+  ```markdown
+  [toDate](../src/toDate/index.ts "c2d:src/toDate/index.ts#toDate:52cf55a51b5f4b02.81c8be41197071a4")
+  normalizes any date-like input to a Date.
+  ```
+
 - A **manifest** declares the pages that should exist — few and typed
   (`overview` / `module` / `flow` / `howto` / `reference`), never an
   auto-generated mirror of the code tree.
 - The tool never calls an LLM. Zero cost, no API key, agent-agnostic.
 
-## The three signals
+## The four signals
 
 `code2doc status` checks every declared page against the code as it
 stands and reports:
@@ -34,8 +40,8 @@ stands and reports:
 | Signal   | Meaning                                                        | Action            |
 | -------- | -------------------------------------------------------------- | ----------------- |
 | Broken   | Anchored symbol gone, or its signature changed                 | Rewrite the claim |
-| Drift    | Symbol exists, signature same, body changed                    | Review the claim  |
-| Ripple   | The anchor is fresh but a symbol it calls went stale since the last `status` | Review the claim |
+| Drift    | Symbol exists, signature same, body changed                    | Review; refresh the fingerprint if the claim still holds |
+| Ripple   | The anchor is fresh but a symbol it calls went stale since the last `status` | Follow `via` to the change; most ripples need nothing |
 | Missing  | A module's public symbol with no anchor on its module page     | Document it       |
 
 Doc-to-doc links are checked too: a page renamed without its inbound
@@ -45,6 +51,8 @@ Exit codes: `0` all accurate, `1` Drift or Ripple, `2` any Broken or
 Missing — so CI (or the agent itself) can gate on severity.
 
 ## The workflow
+
+Requires Node 20+.
 
 ```
 npx @chutian0610/code2doc init      # config + manifest + skeleton + symbol fingerprints
@@ -57,16 +65,15 @@ After any code change, the agent re-runs `status`: Broken claims get
 rewritten, Drift reviewed, new public symbols documented. User
 questions that got a real answer are distilled into `howto` pages that
 age under the same rules. The full operator workflow is taught in
-[SKILL.md](SKILL.md) — load it into any coding agent.
+[SKILL.md](SKILL.md) — copy it into your repo (or reference it from
+your agent's instructions) and the agent knows the whole loop.
 
 ## In this repo
 
-code2doc documents itself — see [docs/overview.md](docs/overview.md)
-(the dogfood tree is guarded by the test suite; after code changes whose
-claims still hold, `npm run refresh-anchors` rewrites the anchors'
-fingerprints). Architecture decisions
-live in [docs/adr/](docs/adr/). Currently extracting TypeScript/TSX,
-JavaScript/JSX and Java; adding a language is one extractor plus tests
-([how](docs/howtos/add-a-language.md)).
+code2doc documents itself — see [docs/overview.md](docs/overview.md);
+the dogfood tree is guarded by the test suite. Architecture decisions
+live in [docs/adr/](docs/adr/). Adding a language is one extractor
+plus tests ([how](docs/howtos/add-a-language.md)); currently
+TypeScript/TSX, JavaScript/JSX and Java.
 
 MIT license.
