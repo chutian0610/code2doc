@@ -44,7 +44,8 @@ public class Greeter extends Base implements Ifc {
 `;
 
 function view(refs: { callers: Record<string, string[]>; imports: Record<string, unknown> }) {
-  const callers: Record<string, string[]> = {};
+  // prototype-less: caller names colliding with Object.prototype must not warp the view
+  const callers: Record<string, string[]> = Object.create(null);
   for (const [caller, callees] of Object.entries(refs.callers)) {
     callers[caller] = [...callees].sort();
   }
@@ -64,6 +65,20 @@ describe('Java extractor — call refs (ADR-0004, V2-3)', () => {
   it('captures construction and extends/implements, attributing heritage to the class', async () => {
     const { callers } = view(await createJavaExtractor().extractRefs(CODE, 'src/Greeter.java'));
     expect(callers.Greeter).toEqual(['Base', 'Ifc']); // heritage: the class is the caller
+  });
+
+  it('a toString override is a caller like any other — no Object.prototype collision (#21)', async () => {
+    // methods are symbols here, so every Java class overriding toString()
+    // makes it a caller; the accumulator must not reach the prototype
+    // chain (this shape crashed init outright on real repos)
+    const code = `package demo;
+public class Json {
+  public String toString() { return String.valueOf(helperValue()); }
+  int helperValue() { return 1; }
+}
+`;
+    const { callers } = view(await createJavaExtractor().extractRefs(code, 'src/Json.java'));
+    expect(callers.toString).toEqual(['helperValue', 'valueOf']);
   });
 
   it('drops calls with no enclosing top-level method: constructor bodies and field initializers', async () => {

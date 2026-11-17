@@ -238,14 +238,16 @@ export function createJavaExtractor(): Extractor {
       const { language, tree } = await parseTree(code);
       if (!tree) return noRefs();
 
-      const imports: FileRefs['imports'] = {};
+      // prototype-less: `toString` and friends are ordinary Java method
+      // names here, and must stay plain keys (#21)
+      const imports: FileRefs['imports'] = Object.create(null);
       for (const { captures } of new Query(language, IMPORT_QUERY).matches(tree.rootNode)) {
         const decl = captures.find((c) => c.name === 'import')?.node;
         const binding = decl && importBinding(decl);
         if (binding) imports[binding[0]] = binding[1];
       }
 
-      const called: Record<string, Set<string>> = {};
+      const called = new Map<string, Set<string>>();
       for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
         const node =
           captures.find((c) => c.name === 'callee')?.node ??
@@ -253,7 +255,10 @@ export function createJavaExtractor(): Extractor {
         if (!node) continue;
         const name = node.type === 'scoped_type_identifier' ? finalTypeSegment(node) : node.text;
         const caller = name ? callerOf(node) : undefined;
-        if (name && caller) (called[caller] ??= new Set<string>()).add(name);
+        if (!name || !caller) continue;
+        const callees = called.get(caller);
+        if (callees) callees.add(name);
+        else called.set(caller, new Set([name]));
       }
       return { imports, callers: collapseCallers(called) };
     },

@@ -93,6 +93,29 @@ export const answer = 42;
     expect(text(code, v.body)).toBe('42');
   });
 
+  it('extracts abstract classes — a distinct node type, same class shape (#22)', async () => {
+    // tree-sitter parses `abstract class` as abstract_class_declaration;
+    // being blind to it made whole files invisible on real repos
+    const code = `export abstract class Parser<Value> {
+  abstract priority: number;
+  run(): Value | null { return this.parse(); }
+  protected abstract parse(): Value | null;
+}
+`;
+    const symbols = await createTsExtractor().extract(code, 'src/Parser.ts');
+    const parser = symbols.find((s) => s.name === 'Parser');
+    expect(parser).toBeDefined();
+    expect(parser!.kind).toBe('class');
+    expect(parser!.visibility).toBe('public');
+    // class spans: signature = header before the body (abstract keyword
+    // included), body = the class body; members are not symbols
+    const sigText = text(code, parser!.signature);
+    expect(sigText).toContain('abstract class Parser');
+    expect(sigText).not.toContain('run');
+    expect(text(code, parser!.body)).toContain('this.parse()');
+    expect(symbols.filter((s) => s.name === 'run' || s.name === 'parse')).toHaveLength(0);
+  });
+
   it('parses plain JavaScript files with the same extractor', async () => {
     const code = `export function add(a, b) { return a + b; }\n`;
     const symbols = await createTsExtractor().extract(code, 'lib/add.js');

@@ -44,7 +44,8 @@ export class Wrapper {
 
 /** callers view with deterministic ordering, imports as a plain object. */
 function view(refs: FileRefs): { callers: Record<string, string[]>; imports: Record<string, unknown> } {
-  const callers: Record<string, string[]> = {};
+  // prototype-less: a caller literally named __proto__ must survive the view too
+  const callers: Record<string, string[]> = Object.create(null);
   for (const [caller, callees] of Object.entries(refs.callers)) {
     callers[caller] = [...callees].sort();
   }
@@ -100,6 +101,31 @@ describe('TS extractor — call refs (ADR-0004)', () => {
 `;
     const refs = await createTsExtractor().extractRefs(code, 'src/greet.ts');
     expect(refs.callers.fn).toEqual(['helper']);
+  });
+
+  it('a caller named like an Object.prototype member (toString) keeps its edges (#21)', async () => {
+    // the accumulator must not resolve `toString` through the prototype
+    // chain — a legal top-level export of that name is a caller like any
+    // other (field-tested against repos full of such names)
+    const code = `import { helper } from './helper';
+export function toString(): string {
+  return helper();
+}
+`;
+    const { callers } = view(await createTsExtractor().extractRefs(code, 'src/greet.ts'));
+    expect(callers.toString).toEqual(['helper']);
+  });
+
+  it('a caller literally named __proto__ is kept, not dropped by the accumulator (#21)', async () => {
+    // a legal identifier; direct assignment on a plain object would go to
+    // the prototype setter and silently lose the key
+    const code = `import { helper } from './helper';
+export function __proto__(): string {
+  return helper();
+}
+`;
+    const { callers } = view(await createTsExtractor().extractRefs(code, 'src/greet.ts'));
+    expect(callers['__proto__']).toEqual(['helper']);
   });
 });
 

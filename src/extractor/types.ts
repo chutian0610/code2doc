@@ -106,11 +106,18 @@ export function noRefs(): FileRefs {
   return { imports: {}, callers: {} };
 }
 
-/** Collapse accumulated per-caller callee sets into a deterministic `callers` map. */
-export function collapseCallers(called: Record<string, Set<string>>): FileRefs['callers'] {
-  const callers: FileRefs['callers'] = {};
-  for (const caller of Object.keys(called).sort()) {
-    callers[caller] = [...called[caller]].sort();
+/**
+ * Collapse accumulated per-caller callee sets into a deterministic
+ * `callers` map. Takes a Map — accumulator keys are arbitrary
+ * identifiers, and a plain object would collide with
+ * `Object.prototype` (`toString` reads through, `__proto__` writes
+ * vanish, #21) — and returns a prototype-less record, so the same names
+ * survive the round trip into the cache.
+ */
+export function collapseCallers(called: Map<string, Set<string>>): FileRefs['callers'] {
+  const callers: FileRefs['callers'] = Object.create(null);
+  for (const caller of [...called.keys()].sort()) {
+    callers[caller] = [...called.get(caller)!].sort();
   }
   return callers;
 }

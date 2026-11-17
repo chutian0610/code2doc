@@ -37,6 +37,7 @@ function getLanguage(kind: 'typescript' | 'tsx'): Promise<Language> {
 const QUERY = `
   (function_declaration name: (identifier) @name) @decl
   (class_declaration name: (type_identifier) @name) @decl
+  (abstract_class_declaration name: (type_identifier) @name) @decl
   (interface_declaration name: (type_identifier) @name) @decl
   (type_alias_declaration name: (type_identifier) @name) @decl
   (enum_declaration name: (identifier) @name) @decl
@@ -90,6 +91,17 @@ function wholeNode(kind: SymbolKind): DeclShape {
   };
 }
 
+/** Classes and abstract classes share one shape: header vs body (#22 — tree-sitter parses them as distinct node types). */
+const classShape: DeclShape = {
+  kind: 'class',
+  signatureStart: (d) => d,
+  signatureEnd: (d) => {
+    const body = d.childForFieldName('body');
+    return body ? body.startIndex : d.endIndex;
+  },
+  body: (d) => d.childForFieldName('body') ?? d,
+};
+
 const DECL_SHAPES: Record<string, DeclShape> = {
   function_declaration: {
     kind: 'function',
@@ -97,15 +109,8 @@ const DECL_SHAPES: Record<string, DeclShape> = {
     signatureEnd: (d) => (d.childForFieldName('return_type') ?? d.childForFieldName('parameters') ?? d).endIndex,
     body: (d) => d.childForFieldName('body') ?? d,
   },
-  class_declaration: {
-    kind: 'class',
-    signatureStart: (d) => d,
-    signatureEnd: (d) => {
-      const body = d.childForFieldName('body');
-      return body ? body.startIndex : d.endIndex;
-    },
-    body: (d) => d.childForFieldName('body') ?? d,
-  },
+  class_declaration: classShape,
+  abstract_class_declaration: classShape,
   lexical_declaration: {
     kind: 'variable',
     signatureStart: declaratorOf,
@@ -240,7 +245,9 @@ export function createTsExtractor(): Extractor {
       const { language, tree } = await parseTree(code, file);
       if (!tree) return noRefs();
 
-      const imports: FileRefs['imports'] = {};
+      // prototype-less from the start: local names are arbitrary
+      // identifiers, and `toString`/`__proto__` must be plain keys (#21)
+      const imports: FileRefs['imports'] = Object.create(null);
       for (const { captures } of new Query(language, IMPORT_QUERY).matches(tree.rootNode)) {
         const spec = captures.find((c) => c.name === 'spec')?.node;
         const local = captures.find((c) => c.name === 'local')?.node;
@@ -257,12 +264,15 @@ export function createTsExtractor(): Extractor {
         }
       }
 
-      const called: Record<string, Set<string>> = {};
+      const called = new Map<string, Set<string>>();
       for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
         const callee = captures.find((c) => c.name === 'callee')?.node;
         if (!callee) continue;
         const caller = callerOf(callee);
-        if (caller) (called[caller] ??= new Set<string>()).add(callee.text);
+        if (!caller) continue;
+        const callees = called.get(caller);
+        if (callees) callees.add(callee.text);
+        else called.set(caller, new Set([callee.text]));
       }
       return { imports, callers: collapseCallers(called) };
     },
