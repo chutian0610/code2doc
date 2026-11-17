@@ -6,11 +6,11 @@ anchored here (the **Missing** guarantee for this module).
 
 ## `types.ts` — the contract
 
-[Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:42a9c42556e79370.42a9c42556e79370") is the whole interface:
+[Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:b047f35747d93444.b047f35747d93444") is the whole interface:
 a language id, claimed file extensions, `extract` returning
 [SymbolRecord](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolRecord:2a1b18c8ccab6ec3.2a1b18c8ccab6ec3")s, and an
 optional `extractRefs` returning
-[FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:ebb8c0be16b6765e.ebb8c0be16b6765e") and optional
+[FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:c4eed43707585445.c4eed43707585445") and optional
 `resolveImport` (ADR-0005) resolving one
 [ImportBinding](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportBinding:1ae251464b109af4.1ae251464b109af4") — named or
 default — against the [ImportIndex](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportIndex:49ef9a843e77962b.49ef9a843e77962b")
@@ -27,9 +27,9 @@ counts for the Missing signal.
 - [SymbolKind](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolKind:f5d0046356a20352.f5d0046356a20352") — function / class / interface / type / enum / variable
 - [Span](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Span:3178c8297160d652.3178c8297160d652") — a source region: UTF-8 byte offsets plus start row/col
 - [symbolId](../../src/extractor/types.ts "c2d:src/extractor/types.ts#symbolId:b902b4b28cb17fa1.1749aebf78122b5b") / [parseSymbolId](../../src/extractor/types.ts "c2d:src/extractor/types.ts#parseSymbolId:a68cd8727243f2a2.6044fc45ac81749b") — the one spelling of a symbol's `file#name` identity key, used by anchors, edges and reports
-- [FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:ebb8c0be16b6765e.ebb8c0be16b6765e") — a file's call refs: import bindings plus caller → called names (ADR-0004)
-- [noRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#noRefs:4f6939c927a01702.f7254f11f97b32f9") — the empty ref table
-- [collapseCallers](../../src/extractor/types.ts "c2d:src/extractor/types.ts#collapseCallers:0b7020fd42992660.0f6f144e43524c58") — shared, deterministic caller-map normalization (Map in, prototype-less record out: caller names are arbitrary identifiers, and `toString`/`__proto__` must stay plain keys), also the baseline for languages without edge extraction
+- [FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:c4eed43707585445.c4eed43707585445") — a file's call refs: import bindings plus caller → called names (ADR-0004)
+- [noRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#noRefs:ec758286af05b25e.0de77cf74141a70b") — the empty ref table
+- [collapseCallers](../../src/extractor/types.ts "c2d:src/extractor/types.ts#collapseCallers:dc6b7fe6e728f663.a22fb2573bec9509") — shared, deterministic caller-map normalization (Map in, prototype-less record out: caller names are arbitrary identifiers, and `toString`/`__proto__` must stay plain keys), also the baseline for languages without edge extraction
 
 ## `fingerprint.ts` — the parity machinery
 
@@ -50,16 +50,21 @@ entry — see the [howto](../howtos/add-a-language.md).
 
 ## `ts.ts` and `java.ts` — the v1 languages
 
-[createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:7fd2f264b359b7bf.dd88dabbc3ea252e") covers the
+[createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:fbcd91d3c65dfb9e.1d4bd5002995ca00") covers the
 TS family on web-tree-sitter with the official grammar (`.tsx`/`.jsx`
 use the tsx grammar, everything else typescript-as-superset). Top-level
 declarations are the symbols — classes and abstract classes alike (a
 distinct node type in the grammar, same class shape); `export` means
 public. Its `extractRefs`
-captures call/member-call by final identifier, `new` and
+captures bare calls by name, `new` and
 `extends`/`implements`, attributing each site to its enclosing top-level
 function or variable (heritage to the class); function-as-value
-references are a documented blind spot. CommonJS `require`s become
+references are a documented blind spot, and a member call is reported
+only when its receiver chain bottoms out in a namespace import — then
+as a named claim on that module's source (#26: methods are not symbols
+here, and field-measured, every member-call name the global-uniqueness
+step resolved was a false edge; Java, where methods are symbols, keeps
+the old behavior). CommonJS `require`s become
 claims like imports (#25): a destructured require yields named
 bindings, a whole-module require a default one — the claimed name never
 falls through, so requiring an external package that shares a name with

@@ -17,9 +17,10 @@ export interface CacheData {
    * anchor verification (v3 added call refs; v4 retagged import
    * bindings, ADR-0004/0005; v5 extracts abstract classes and
    * prototype-colliding ref names, #21/#22; v6 claims CommonJS
-   * requires, #25).
+   * requires, #25; v7 stops guessing member-call names, claiming
+   * namespace-import member calls instead, #26).
    */
-  version: 6;
+  version: 7;
   files: Record<string, { hash: string; symbols: SymbolRecord[]; refs: FileRefs }>;
 }
 
@@ -43,7 +44,7 @@ export async function scan(
     ignore: config.exclude,
     dot: false,
   });
-  const cache: CacheData = { version: 6, files: {} };
+  const cache: CacheData = { version: 7, files: {} };
   for (const raw of files.sort()) {
     const rel = toPosix(raw);
     const extractor = extractorForFile(rel);
@@ -73,7 +74,7 @@ export function loadCache(root: string): CacheData | undefined {
   const file = path.join(root, CACHE_FILE);
   if (!existsSync(file)) return undefined;
   const parsed = JSON.parse(readFileSync(file, 'utf8')) as CacheData;
-  if (parsed.version !== 6) return undefined; // foreign algorithm: rebuild
+  if (parsed.version !== 7) return undefined; // foreign algorithm: rebuild
   return parsed;
 }
 

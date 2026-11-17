@@ -90,8 +90,10 @@ export interface ImportIndex {
 export interface FileRefs {
   /**
    * Local import bindings: local name → what it imports and from where.
-   * Namespace imports are not listed (member calls resolve by their
-   * final identifier through the cascade instead).
+   * A namespace import itself is not a binding; a member call through
+   * one (`ns.fn()`) is reported as a named claim on the module's source
+   * (#26) — the only member-call shape a language may report when its
+   * methods are not symbols.
    */
   imports: Record<string, ImportBinding>;
   /**

@@ -194,4 +194,43 @@ module.exports = { fn };
     const { imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.cjs'));
     expect(Object.keys(imports)).toHaveLength(0);
   });
+
+  it('a member call on a namespace import becomes a named claim on the module (#26)', async () => {
+    // the one member-call shape that points at our own symbols: `ns.fn()`
+    // where ns names a whole imported module. Claimed to the module's
+    // source, so the cascade resolves it precisely instead of guessing.
+    const code = `import * as utils from './utils';
+export function f(): void {
+  utils.sort();
+  utils.deep.map();
+}
+`;
+    const { callers, imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.ts'));
+    expect(callers.f).toContain('sort');
+    expect(callers.f).toContain('map');
+    expect(imports.sort).toEqual({ kind: 'named', imported: 'sort', source: './utils' });
+    expect(imports.map).toEqual({ kind: 'named', imported: 'map', source: './utils' });
+  });
+
+  it('other member calls yield nothing — no global-name guessing (#26)', async () => {
+    // field-tested shapes, all of which minted false edges through the
+    // global-uniqueness step: call-bound receivers (effectScope, a store),
+    // a chained receiver, and builtin receivers. Methods are not symbols
+    // in the TS family, so none of these names is ours to guess about.
+    const code = `const scope = effectScope(true);
+const store = useStore();
+export function f(): void {
+  scope.run(() => 1);
+  store.double();
+  effectScope().run(() => 2);
+  console.warn('no');
+  Object.is(1, 2);
+}
+`;
+    const { callers } = view(await createTsExtractor().extractRefs(code, 'src/greet.ts'));
+    // the bare effectScope() inside the chain is a real bare call and stays;
+    // every member name is gone
+    expect(callers.f).toEqual(['effectScope']);
+  });
 });
+

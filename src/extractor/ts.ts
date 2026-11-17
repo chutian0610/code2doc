@@ -48,13 +48,15 @@ const QUERY = `
 const COMMENT_QUERY = `(comment) @comment`;
 
 /**
- * Call-ref sites per ADR-0004: call/member-call by final identifier,
- * `new`, `extends`/`implements`. Function-as-value references are a
+ * Call-ref sites per ADR-0004: bare calls by name, `new`,
+ * `extends`/`implements` — and member calls captured whole (#26): their
+ * name is only ours when the receiver chain bottoms out in a namespace
+ * import, decided in code. Function-as-value references are a
  * documented blind spot and match none of these patterns.
  */
 const REF_QUERY = `
   (call_expression function: (identifier) @callee)
-  (call_expression function: (member_expression property: (property_identifier) @callee))
+  (call_expression function: (member_expression) @member)
   (new_expression constructor: (identifier) @callee)
   (new_expression constructor: (member_expression property: (property_identifier) @callee))
   (extends_clause value: (identifier) @callee)
@@ -62,10 +64,11 @@ const REF_QUERY = `
   (implements_clause (type_identifier) @callee)
 `;
 
-/** Named imports (specifier node read whole, so `a as b` yields local b) and default imports. */
+/** Named imports (specifier node read whole, so `a as b` yields local b), default imports, and namespace bases. */
 const IMPORT_QUERY = `
   (import_statement (import_clause (named_imports (import_specifier) @spec)) source: (string (string_fragment) @source))
   (import_statement (import_clause (identifier) @local) source: (string (string_fragment) @source))
+  (import_statement (import_clause (namespace_import (identifier) @ns)) source: (string (string_fragment) @source))
 `;
 
 /**
@@ -256,9 +259,11 @@ export function createTsExtractor(): Extractor {
       // prototype-less from the start: local names are arbitrary
       // identifiers, and `toString`/`__proto__` must be plain keys (#21)
       const imports: FileRefs['imports'] = Object.create(null);
+      const namespaces = new Map<string, string>(); // namespace local name → its source
       for (const { captures } of new Query(language, IMPORT_QUERY).matches(tree.rootNode)) {
         const spec = captures.find((c) => c.name === 'spec')?.node;
         const local = captures.find((c) => c.name === 'local')?.node;
+        const ns = captures.find((c) => c.name === 'ns')?.node;
         const source = captures.find((c) => c.name === 'source')?.node;
         if (!source) continue;
         if (spec) {
@@ -269,6 +274,8 @@ export function createTsExtractor(): Extractor {
           // default import: the binding is claimed but unresolvable by name —
           // the disambiguation steps must not fall through to same-file/global guesses
           imports[local.text] = { kind: 'default', source: source.text };
+        } else if (ns) {
+          namespaces.set(ns.text, source.text);
         }
       }
 
@@ -304,14 +311,34 @@ export function createTsExtractor(): Extractor {
       }
 
       const called = new Map<string, Set<string>>();
+      const note = (caller: string | undefined, name: string) => {
+        if (!caller) return;
+        const callees = called.get(caller);
+        if (callees) callees.add(name);
+        else called.set(caller, new Set([name]));
+      };
       for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
+        const member = captures.find((c) => c.name === 'member')?.node;
+        if (member) {
+          // A member call's name is ours only through a namespace import:
+          // walk left to the receiver chain's base identifier and, when it
+          // names an imported module, claim the final identifier to that
+          // module (#26). Any other receiver — a call result, a field, a
+          // builtin — names some object's method, and methods are not
+          // symbols in this language family: field-measured, every such
+          // name the global-uniqueness step resolved was a false edge.
+          let base = member.childForFieldName('object');
+          while (base?.type === 'member_expression') base = base.childForFieldName('object');
+          const source = base?.type === 'identifier' ? namespaces.get(base.text) : undefined;
+          const prop = member.childForFieldName('property')?.text;
+          if (!source || !prop) continue;
+          imports[prop] = { kind: 'named', imported: prop, source };
+          note(callerOf(member), prop);
+          continue;
+        }
         const callee = captures.find((c) => c.name === 'callee')?.node;
         if (!callee) continue;
-        const caller = callerOf(callee);
-        if (!caller) continue;
-        const callees = called.get(caller);
-        if (callees) callees.add(callee.text);
-        else called.set(caller, new Set([callee.text]));
+        note(callerOf(callee), callee.text);
       }
       return { imports, callers: collapseCallers(called) };
     },
