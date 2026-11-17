@@ -60,18 +60,20 @@ resolution dispatches to the file's extractor (ADR-0005: the core knows
 no specifier forms), a name claimed by an import never falls through,
 and an ambiguous name yields nothing (a missing edge is tolerated, a
 false edge never is).
-[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.532478f248ce8afc") diffs the previous
+[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:06c27617a69bca2f.65e6794762cd3cd5") diffs the previous
 status cache into the changed set (gone or signature moved → broken,
-body moved → drift; additions are not changes), and
-[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:e191fee791497fdd.09891e4feb8a2019") propagates it:
+body moved → drift; additions are not changes), with a key that carries
+several declarations — Java overloads — compared as a whole set so an
+unedited pair of overloads never reads as a change (ADR-0006), and
+[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:ae0ccb7b1da64e97.366febadf79cca0f") propagates it:
 reverse single-source reachability from each changed symbol over caller
 edges, keeping the shortest path — `via` is the reached symbol's own
 callee on it, `depth` its length — so closure cost scales with the
 change set, not the anchor count. The pairing itself is one module,
-[buildBaseline](../../src/ripple.ts "c2d:src/ripple.ts#buildBaseline:8e64f5cda85d7424.e3934c52a7ea29f1"):
+[buildBaseline](../../src/ripple.ts "c2d:src/ripple.ts#buildBaseline:1b73522f77adb364.210b1c9af3a9e52c"):
 edges from the previous cache, the diff against the current one — a
 callee deleted since the last status still ripples its caller — behind
-the single-method [Baseline](../../src/ripple.ts "c2d:src/ripple.ts#Baseline:bba3b720767874c4.bba3b720767874c4")
+the single-method [Baseline](../../src/ripple.ts "c2d:src/ripple.ts#Baseline:1593af5baf8721d2.1593af5baf8721d2")
 interface the status pass queries.
 
 - [EdgeMap](../../src/ripple.ts "c2d:src/ripple.ts#EdgeMap:3c402fddea2aa1e0.3c402fddea2aa1e0") — resolved caller → callee keys, both `file#name`

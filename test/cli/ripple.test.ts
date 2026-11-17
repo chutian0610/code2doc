@@ -346,3 +346,39 @@ describe('code2doc ripple closure (V2-2)', () => {
     expect(human).toContain('1 ripple');
   });
 });
+
+describe('code2doc ripple overloads (#20)', () => {
+  /** An overloaded static callee reached through a static import — one key, two declarations. */
+  const CALC = `package demo;
+public class Calc {
+  public static int value(int x) { return x; }
+  public static int value(String s) { return s.length(); }
+}
+`;
+  const APP = `package demo;
+import static demo.Calc.value;
+public class App {
+  public static String render(int n) { return "" + value(n); }
+}
+`;
+
+  it('a second status over an overloaded callee stays green: no false ripple', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'code2doc-overload-'));
+    mkdirSync(path.join(dir, 'src/demo'), { recursive: true });
+    writeFileSync(path.join(dir, 'src/demo/Calc.java'), CALC, 'utf8');
+    writeFileSync(path.join(dir, 'src/demo/App.java'), APP, 'utf8');
+
+    const report = JSON.parse(run(['init'], dir).stdout);
+    const render = (report.symbols as Sym[]).find((s) => s.name === 'render')!;
+    writePage(dir, 'flows/render.md', `# the flow\n\n- ${anchorLink(render)} drives it\n`);
+    declarePages(dir, [{ path: 'flows/render.md', type: 'flow' }]);
+    expect(run(['status'], dir).code).toBe(0);
+
+    // No edit at all: the declaration set under the `value` key did not
+    // move, so nothing may ripple — a false broken here rippled every
+    // caller of an overloaded method on every status after the first.
+    const second = run(['status', '--json'], dir);
+    expect(second.code).toBe(0);
+    expect(JSON.parse(second.stdout).pages[0].state).toBe('fresh');
+  });
+});

@@ -52,6 +52,21 @@ describe('Java extractor', () => {
     expect(again[1].fingerprint.body).toBe(greet.fingerprint.body);
   });
 
+  it('emits one record per overload declaration — same name, own signature (ADR-0006)', async () => {
+    const code = `package demo;
+public class Calc {
+  public int value(int x) { return x; }
+  public int value(String s) { return s.length(); }
+}
+`;
+    const symbols = await createJavaExtractor().extract(code, 'src/Calc.java');
+    const overloads = symbols.filter((s) => s.name === 'value');
+    // both declarations are extracted, each with its own fingerprint;
+    // downstream they share one file#name key and compare as a set
+    expect(overloads).toHaveLength(2);
+    expect(overloads[0].fingerprint.signature).not.toBe(overloads[1].fingerprint.signature);
+  });
+
   it('maps visibility by Java rules: only public is public, package-private/protected/private are internal', async () => {
     const code = `class Helper {
   int helperValue() { return 1; }

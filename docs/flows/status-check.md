@@ -30,8 +30,8 @@ only the printing differs.)
    [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.bb07d1e890667e0e") builds the call graph
    from the *previous* cache (the graph as of the last status, so a
    deleted callee still ripples its caller),
-   [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:2666cea6545df679.532478f248ce8afc") diffs the two caches,
-   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:e191fee791497fdd.09891e4feb8a2019") walks the change
+   [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:06c27617a69bca2f.65e6794762cd3cd5") diffs the two caches,
+   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:ae0ccb7b1da64e97.366febadf79cca0f") walks the change
    set backwards over caller edges, so a ripple reaches any depth and
    names each stale callee with `via` and `depth`. No previous cache —
    fresh clone or foreign version — means no baseline and a

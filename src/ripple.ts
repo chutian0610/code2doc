@@ -1,7 +1,7 @@
 import type { CacheData } from './cache.js';
 import { extractorForFile } from './extractor/registry.js';
 import { parseSymbolId, symbolId } from './extractor/types.js';
-import type { ImportIndex } from './extractor/types.js';
+import type { ImportIndex, SymbolRecord } from './extractor/types.js';
 
 /**
  * Ripple's engine room (ADR-0004). Two language-agnostic halves:
@@ -113,23 +113,57 @@ export function resolveEdges(cache: CacheData): EdgeMap {
 }
 
 /**
+ * One name's declarations as sorted fingerprint lists. A key may carry
+ * several declarations — Java overloads share their `file#name`
+ * (ADR-0006) — and the whole set is the symbol: comparing declarations
+ * pairwise across the previous and current sets would pit the first
+ * overload against the last, whose signatures differ by definition,
+ * and flag a broken no edit caused.
+ */
+function declarationSet(symbols: SymbolRecord[]): { pairs: string[]; signatures: string[] } {
+  const pairs = symbols.map((s) => `${s.fingerprint.signature}.${s.fingerprint.body}`);
+  const signatures = symbols.map((s) => s.fingerprint.signature);
+  return { pairs: pairs.sort(), signatures: signatures.sort() };
+}
+
+/** Same length, same elements in order — over already-sorted lists. */
+function sameList(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+/** Symbols grouped by name — overloads of one key land in one bucket. */
+function byName(symbols: SymbolRecord[]): Map<string, SymbolRecord[]> {
+  const grouped = new Map<string, SymbolRecord[]>();
+  for (const s of symbols) grouped.set(s.name, [...(grouped.get(s.name) ?? []), s]);
+  return grouped;
+}
+
+/**
  * The cache baseline: symbols of the previous status that are gone now
  * (broken), whose signature hash moved (broken), or whose body hash
- * moved (drift). Newly added symbols are deliberately absent — Ripple
- * reports what moved under an unchanged anchor, and a symbol the
- * previous run never saw cannot have been claimed by one.
+ * moved (drift). A key with several declarations compares as a set:
+ * signature set moved → broken, bodies only → drift (ADR-0006). Newly
+ * added symbols are deliberately absent — Ripple reports what moved
+ * under an unchanged anchor, and a symbol the previous run never saw
+ * cannot have been claimed by one.
  */
 export function changedSince(prev: CacheData | undefined, curr: CacheData): ChangeMap {
   const changed: ChangeMap = new Map();
   if (!prev) return changed; // fresh-clone first run: no baseline, ripple-silent
   for (const [file, entry] of Object.entries(prev.files)) {
-    const current = new Map((curr.files[file]?.symbols ?? []).map((s) => [s.name, s]));
-    for (const symbol of entry.symbols) {
-      const key = symbolId(file, symbol.name);
-      const now = current.get(symbol.name);
-      if (!now) changed.set(key, 'broken');
-      else if (now.fingerprint.signature !== symbol.fingerprint.signature) changed.set(key, 'broken');
-      else if (now.fingerprint.body !== symbol.fingerprint.body) changed.set(key, 'drift');
+    const before = byName(entry.symbols);
+    const after = byName(curr.files[file]?.symbols ?? []);
+    for (const [name, declarations] of before) {
+      const key = symbolId(file, name);
+      const now = after.get(name);
+      if (!now) {
+        changed.set(key, 'broken');
+        continue;
+      }
+      const was = declarationSet(declarations);
+      const is = declarationSet(now);
+      if (sameList(was.pairs, is.pairs)) continue;
+      changed.set(key, sameList(was.signatures, is.signatures) ? 'drift' : 'broken');
     }
   }
   return changed;

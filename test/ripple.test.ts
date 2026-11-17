@@ -15,8 +15,10 @@ import { noRefs } from '../src/extractor/types.js';
 
 const SIG_A = 'a'.repeat(16);
 const SIG_B = 'b'.repeat(16);
+const SIG_C = 'f'.repeat(16);
 const BODY_A = 'c'.repeat(16);
 const BODY_B = 'd'.repeat(16);
+const BODY_C = 'e'.repeat(16);
 
 function sym(file: string, name: string, signature = SIG_A, body = BODY_A): SymbolRecord {
   return {
@@ -246,6 +248,48 @@ describe('changedSince — the cache baseline', () => {
     const curr = cache({ 'src/a.ts': { symbols: [sym('src/a.ts', 'fn')] } });
     expect(changedSince(undefined, curr)).toEqual(new Map());
     expect(changedSince(curr, curr)).toEqual(new Map());
+  });
+
+  it('overloads sharing one key compare as a declaration set: a no-edit diff stays empty', () => {
+    // Java overloads: two declarations, one file#name key (ADR-0006). A
+    // pairwise name table would pit the first overload's signature
+    // against the last one's — different by definition — and flag a
+    // false broken on every diff; the whole set is the symbol.
+    const overloads = cache({
+      'src/Calc.java': {
+        symbols: [sym('src/Calc.java', 'value', SIG_A, BODY_A), sym('src/Calc.java', 'value', SIG_B, BODY_B)],
+      },
+    });
+    expect(changedSince(overloads, overloads)).toEqual(new Map());
+  });
+
+  it('an edit inside the overload set is detected once, at key granularity', () => {
+    const prev = cache({
+      'src/Calc.java': {
+        symbols: [sym('src/Calc.java', 'value', SIG_A, BODY_A), sym('src/Calc.java', 'value', SIG_B, BODY_B)],
+      },
+    });
+    const overload = (sig: string, body: string) =>
+      cache({
+        'src/Calc.java': {
+          symbols: [sym('src/Calc.java', 'value', SIG_A, BODY_A), sym('src/Calc.java', 'value', sig, body)],
+        },
+      });
+    // one overload's body moved: drift, once — not twice, not per declaration
+    expect(changedSince(prev, overload(SIG_B, BODY_C))).toEqual(
+      new Map([['src/Calc.java#value', 'drift']]),
+    );
+    // one overload's signature moved (params edited): broken
+    expect(changedSince(prev, overload(SIG_C, BODY_B))).toEqual(
+      new Map([['src/Calc.java#value', 'broken']]),
+    );
+    // an overload removed is a signature-set change: broken
+    expect(
+      changedSince(
+        prev,
+        cache({ 'src/Calc.java': { symbols: [sym('src/Calc.java', 'value', SIG_A, BODY_A)] } }),
+      ),
+    ).toEqual(new Map([['src/Calc.java#value', 'broken']]));
   });
 });
 

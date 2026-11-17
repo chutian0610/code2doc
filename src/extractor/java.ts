@@ -23,6 +23,8 @@ import { collapseCallers, noRefs, symbolId } from './types.js';
  *   the header, body = the declaration body. A body-less (abstract)
  *   method hashes the whole declaration for both, like TS declarations
  *   without a body.
+ * - Overloads are one record per declaration but one `file#name` key:
+ *   downstream they compare as a whole declaration set (ADR-0006).
  */
 
 const require = createRequire(import.meta.url);
