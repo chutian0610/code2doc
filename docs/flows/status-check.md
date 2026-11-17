@@ -8,11 +8,11 @@ only the printing differs.)
    starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 
-2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.893d40fcf02b8f06") globs the
+2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.43749b7712370f0f") globs the
    config's scope and parses every file whose content hash differs from
-   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:097909b3a2dbffdd.7280d80f1ee2362f") had — unchanged files keep
+   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:38e70f711a1e42ee.008067ee7d41fab0") had — unchanged files keep
    their cached symbols, so a fresh clone and a warm one reach the same
-   state. [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:05c31eec37899133.a49d58e681604d3a") persists it; the cache
+   state. [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:e977b693b56fe94a.c0d806b90168a75f") persists it; the cache
    is derived state, safe to delete and rebuild.
 
 3. **Validate the manifest.** [loadManifest](../../src/manifest.ts "c2d:src/manifest.ts#loadManifest:5e1332b8bf04023d.bfc45f9f5785f349")

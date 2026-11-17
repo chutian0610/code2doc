@@ -51,8 +51,18 @@ export async function scan(
     const hash = fileHash(code);
     const prev = previous?.files[rel];
     const reuse = prev && prev.hash === hash;
-    const symbols = reuse ? prev.symbols : await extractor.extract(code, rel);
-    const refs = reuse ? prev.refs : ((await extractor.extractRefs?.(code, rel)) ?? noRefs());
+    let symbols: SymbolRecord[];
+    let refs: FileRefs;
+    try {
+      symbols = reuse ? prev.symbols : await extractor.extract(code, rel);
+      refs = reuse ? prev.refs : ((await extractor.extractRefs?.(code, rel)) ?? noRefs());
+    } catch (err) {
+      // loud, but named: the Operator must know which file to exclude or
+      // report (#23) — never skip and continue (that would be silent staleness)
+      throw new Error(`extraction failed for ${rel}: ${err instanceof Error ? err.message : String(err)}`, {
+        cause: err,
+      });
+    }
     cache.files[rel] = { hash, symbols, refs };
   }
   return cache;

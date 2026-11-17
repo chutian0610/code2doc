@@ -122,4 +122,15 @@ describe('code2doc CLI', () => {
     const { code } = run(['status', '--json'], dir);
     expect(code).toBe(3);
   });
+
+  it('internal failures print their message on stderr and exit 3 (#23)', () => {
+    const dir = copyFixture(tsFixture, 'code2doc-');
+    run(['init'], dir);
+    writeFileSync(path.join(dir, 'code2doc.config.json'), '{ not json', 'utf8');
+
+    const { code, stdout, stderr } = run(['status'], dir);
+    expect(code).toBe(3);
+    expect(stdout).toBe('');
+    expect(stderr).toMatch(/JSON at position/); // the cause, on stderr, never in a report
+  });
 });
