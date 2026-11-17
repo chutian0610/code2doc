@@ -40,13 +40,13 @@ it necessarily changed); ≤3, never a state or an exit code.
 
 ## `cache.ts` — derived state, rebuildable at any time
 
-[CacheData](../../src/cache.ts "c2d:src/cache.ts#CacheData:6bf2990a7d20600e.6bf2990a7d20600e") is the whole cache: per-file
+[CacheData](../../src/cache.ts "c2d:src/cache.ts#CacheData:961e9b0034a7eb69.961e9b0034a7eb69") is the whole cache: per-file
 content hash plus extracted symbols plus call refs, version-gated so a
 foreign algorithm triggers a rebuild instead of poisoning checks.
-[scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.f17113f4fd26a12b") globs the config's include/exclude, routes
+[scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.893d40fcf02b8f06") globs the config's include/exclude, routes
 each file to its extractor and reuses cached symbols and refs whenever
 [fileHash](../../src/cache.ts "c2d:src/cache.ts#fileHash:7b8e31f77c8bcd72.eeea8db4839d041e") matches (ADR-0002: file-level
-detection, symbol-level semantics). [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:097909b3a2dbffdd.3af48f8a6c971ecc")
+detection, symbol-level semantics). [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:097909b3a2dbffdd.7280d80f1ee2362f")
 and [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:05c31eec37899133.a49d58e681604d3a") persist it under the ignored
 `.code2doc/`; [allSymbols](../../src/cache.ts "c2d:src/cache.ts#allSymbols:65cf4a853e7409f4.9c59068f7412a0e4") flattens it for
 coverage checks.

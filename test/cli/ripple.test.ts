@@ -198,10 +198,10 @@ describe('code2doc ripple (V2-1)', () => {
   it('a foreign-version cache rebuilds instead of poisoning the baseline', () => {
     const pages = setup();
     greenBaseline(pages);
-    // forge a v3-era cache, as a checkout from before the binding rework would carry
+    // forge a v4-era cache, as a checkout from before the extractor rework would carry
     const cacheFile = path.join(pages.dir, '.code2doc', 'cache.json');
     const stale = JSON.parse(readFileSync(cacheFile, 'utf8'));
-    stale.version = 3;
+    stale.version = 4;
     writeFileSync(cacheFile, JSON.stringify(stale), 'utf8');
     editHelper(pages.dir, HELPER_DRIFT);
 
@@ -211,7 +211,7 @@ describe('code2doc ripple (V2-1)', () => {
     expect(report.summary).toEqual({ broken: 0, drift: 1, ripple: 0, missing: 0 });
 
     const rebuilt = JSON.parse(readFileSync(cacheFile, 'utf8'));
-    expect(rebuilt.version).toBe(4);
+    expect(rebuilt.version).toBe(5);
   });
 });
 
