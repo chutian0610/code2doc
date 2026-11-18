@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { anchorLink, buildCli, copyFixture, run, tsFixture } from './helpers';
-import type { Sym } from './helpers';
+import { anchorLink, buildCli, copyFixture, run, tsFixture } from './helpers.js';
+import type { Sym } from './helpers.js';
 
 interface Page {
   path: string;

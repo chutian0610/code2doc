@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildCli, copyFixture, run, tsFixture } from './helpers';
+import { buildCli, copyFixture, run, tsFixture } from './helpers.js';
 import { claimedExtensions } from '../../src/extractor/registry.js';
 
 describe('code2doc CLI', () => {

@@ -9,8 +9,8 @@ import {
   run,
   tsFixture,
   writePage,
-} from './helpers';
-import type { Sym } from './helpers';
+} from './helpers.js';
+import type { Sym } from './helpers.js';
 
 /** init's public-symbol report, restricted to one source file. */
 function publicSymbols(dir: string, file: string): Sym[] {

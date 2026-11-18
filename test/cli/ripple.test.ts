@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { anchorLink, buildCli, declarePages, run, writePage } from './helpers';
-import type { Sym } from './helpers';
+import { anchorLink, buildCli, declarePages, run, writePage } from './helpers.js';
+import type { Sym } from './helpers.js';
 
 /**
  * V2-1: the first end-to-end Ripple, driven as the Operator drives it —

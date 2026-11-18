@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { anchorLink, buildCli, declarePages, run, writePage } from './helpers';
-import type { Sym } from './helpers';
+import { anchorLink, buildCli, declarePages, run, writePage } from './helpers.js';
+import type { Sym } from './helpers.js';
 
 /**
  * Performance acceptance (T7): `status` on a ~10k-symbol repo completes

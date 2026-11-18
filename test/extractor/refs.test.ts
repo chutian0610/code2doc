@@ -99,7 +99,7 @@ describe('TS extractor — call refs (ADR-0004)', () => {
   other.helper();
 }
 `;
-    const refs = await createTsExtractor().extractRefs(code, 'src/greet.ts');
+    const refs = await createTsExtractor().extractRefs!(code, 'src/greet.ts');
     expect(refs.callers.fn).toEqual(['helper']);
   });
 
@@ -112,7 +112,7 @@ export function toString(): string {
   return helper();
 }
 `;
-    const { callers } = view(await createTsExtractor().extractRefs(code, 'src/greet.ts'));
+    const { callers } = view(await createTsExtractor().extractRefs!(code, 'src/greet.ts'));
     expect(callers.toString).toEqual(['helper']);
   });
 
@@ -124,7 +124,7 @@ export function __proto__(): string {
   return helper();
 }
 `;
-    const { callers } = view(await createTsExtractor().extractRefs(code, 'src/greet.ts'));
+    const { callers } = view(await createTsExtractor().extractRefs!(code, 'src/greet.ts'));
     expect(callers['__proto__']).toEqual(['helper']);
   });
 });
@@ -166,7 +166,7 @@ function fn(): void {
 }
 module.exports = { fn };
 `;
-    const { callers, imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.cjs'));
+    const { callers, imports } = view(await createTsExtractor().extractRefs!(code, 'src/greet.cjs'));
     expect(imports.helper).toEqual({ kind: 'named', imported: 'helper', source: './helper' });
     expect(imports.aliased).toEqual({ kind: 'named', imported: 'a', source: '../util/x' });
     expect(callers.fn).toContain('helper');
@@ -180,7 +180,7 @@ function fn(): void {
 }
 module.exports = { fn };
 `;
-    const { imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.cjs'));
+    const { imports } = view(await createTsExtractor().extractRefs!(code, 'src/greet.cjs'));
     expect(imports.helper).toEqual({ kind: 'default', source: 'lodash-helper' });
   });
 
@@ -191,7 +191,7 @@ module.exports = { fn };
 }
 module.exports = { fn };
 `;
-    const { imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.cjs'));
+    const { imports } = view(await createTsExtractor().extractRefs!(code, 'src/greet.cjs'));
     expect(Object.keys(imports)).toHaveLength(0);
   });
 
@@ -205,7 +205,7 @@ export function f(): void {
   utils.deep.map();
 }
 `;
-    const { callers, imports } = view(await createTsExtractor().extractRefs(code, 'src/greet.ts'));
+    const { callers, imports } = view(await createTsExtractor().extractRefs!(code, 'src/greet.ts'));
     expect(callers.f).toContain('sort');
     expect(callers.f).toContain('map');
     expect(imports.sort).toEqual({ kind: 'named', imported: 'sort', source: './utils' });
@@ -227,7 +227,7 @@ export function f(): void {
   Object.is(1, 2);
 }
 `;
-    const { callers } = view(await createTsExtractor().extractRefs(code, 'src/greet.ts'));
+    const { callers } = view(await createTsExtractor().extractRefs!(code, 'src/greet.ts'));
     // the bare effectScope() inside the chain is a real bare call and stays;
     // every member name is gone
     expect(callers.f).toEqual(['effectScope']);

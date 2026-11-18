@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { anchorLink, buildCli, copyFixture, repoRoot, run, tsFixture } from './helpers';
-import type { Sym } from './helpers';
+import { anchorLink, buildCli, copyFixture, repoRoot, run, tsFixture } from './helpers.js';
+import type { Sym } from './helpers.js';
 
 const script = path.join(repoRoot, 'scripts', 'refresh-anchors.mjs');
 

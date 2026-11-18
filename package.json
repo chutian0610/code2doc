@@ -33,7 +33,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "refresh-anchors": "node scripts/refresh-anchors.mjs",
     "prepublishOnly": "npm run build"

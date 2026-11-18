@@ -54,7 +54,7 @@ function view(refs: { callers: Record<string, string[]>; imports: Record<string,
 
 describe('Java extractor — call refs (ADR-0004, V2-3)', () => {
   it('captures method invocations by name field: bare, this-, chained and static-import calls', async () => {
-    const { callers } = view(await createJavaExtractor().extractRefs(CODE, 'src/Greeter.java'));
+    const { callers } = view(await createJavaExtractor().extractRefs!(CODE, 'src/Greeter.java'));
     expect(callers.greet).toContain('helper'); // bare call
     expect(callers.greet).toContain('tool'); // static-import call and Greeter.other.tool()
     expect(callers.greet).toContain('Local'); // new of a same-file class
@@ -63,7 +63,7 @@ describe('Java extractor — call refs (ADR-0004, V2-3)', () => {
   });
 
   it('captures construction and extends/implements, attributing heritage to the class', async () => {
-    const { callers } = view(await createJavaExtractor().extractRefs(CODE, 'src/Greeter.java'));
+    const { callers } = view(await createJavaExtractor().extractRefs!(CODE, 'src/Greeter.java'));
     expect(callers.Greeter).toEqual(['Base', 'Ifc']); // heritage: the class is the caller
   });
 
@@ -77,23 +77,23 @@ public class Json {
   int helperValue() { return 1; }
 }
 `;
-    const { callers } = view(await createJavaExtractor().extractRefs(code, 'src/Json.java'));
+    const { callers } = view(await createJavaExtractor().extractRefs!(code, 'src/Json.java'));
     expect(callers.toString).toEqual(['helperValue', 'valueOf']);
   });
 
   it('drops calls with no enclosing top-level method: constructor bodies and field initializers', async () => {
-    const { callers } = view(await createJavaExtractor().extractRefs(CODE, 'src/Greeter.java'));
+    const { callers } = view(await createJavaExtractor().extractRefs!(CODE, 'src/Greeter.java'));
     expect(Object.keys(callers).sort()).toEqual(['Greeter', 'greet', 'helper']);
   });
 
   it('ignores method references and field accesses — no invocation, no callee', async () => {
-    const { callers } = view(await createJavaExtractor().extractRefs(CODE, 'src/Greeter.java'));
+    const { callers } = view(await createJavaExtractor().extractRefs!(CODE, 'src/Greeter.java'));
     // this::helper and this.helper appear as values, never as calls
     expect(callers.greet.filter((c) => c === 'helper').length).toBe(1); // just the bare helper() call
   });
 
   it('normalizes imports to package-path form; wildcards claim nothing', async () => {
-    const { imports } = view(await createJavaExtractor().extractRefs(CODE, 'src/Greeter.java'));
+    const { imports } = view(await createJavaExtractor().extractRefs!(CODE, 'src/Greeter.java'));
     expect(imports.Base).toEqual({ kind: 'named', imported: 'Base', source: 'demo/other/Base.java' });
     expect(imports.Thing).toEqual({ kind: 'named', imported: 'Thing', source: 'demo/deep/Thing.java' });
     expect(imports.tool).toEqual({ kind: 'named', imported: 'tool', source: 'demo/other/K.java' }); // static import: path is the class

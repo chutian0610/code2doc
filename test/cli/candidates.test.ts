@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { anchorLink, buildCli, declarePages, run, writePage } from './helpers';
-import type { Sym } from './helpers';
+import { anchorLink, buildCli, declarePages, run, writePage } from './helpers.js';
+import type { Sym } from './helpers.js';
 
 /**
  * V2-4: rename candidates — the Operator's one-glance fix for a vanished

@@ -8,7 +8,7 @@ import {
   run,
   tsFixture,
   writePage,
-} from './helpers';
+} from './helpers.js';
 
 interface Page {
   path: string;
@@ -101,7 +101,7 @@ describe('code2doc manifest-driven doc tree (T3)', () => {
     const overview = pages(stdout).find((p) => p.path === 'overview.md')!;
     expect(overview.state).toBe('broken');
     // the broken link breaks the page; its anchor is independently fresh
-    expect(overview.anchors.find((a: { symbol: string }) => a.symbol === 'src/greet.ts#greet')!.state).toBe('fresh');
+    expect(overview.anchors!.find((a: { symbol: string }) => a.symbol === 'src/greet.ts#greet')!.state).toBe('fresh');
     const brokenLink = overview.links.find((l) => l.target === 'old-name.md')!;
     expect(brokenLink.state).toBe('broken');
     expect(brokenLink.reason).toBe('doc link target missing');

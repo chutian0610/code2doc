@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { buildCli, repoRoot, run } from './helpers';
+import { buildCli, repoRoot, run } from './helpers.js';
 
 interface Page {
   type: string;

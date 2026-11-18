@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { anchorLink, buildCli, copyFixture, declarePages, repoRoot, run, writePage } from './helpers';
-import type { Sym } from './helpers';
+import { anchorLink, buildCli, copyFixture, declarePages, repoRoot, run, writePage } from './helpers.js';
+import type { Sym } from './helpers.js';
 
 /**
  * The full Operator flow — init, anchored module page, Drift / Broken /
@@ -112,6 +112,7 @@ interface AnchorReportShape {
   symbol: string;
   state: string;
   reason: string;
+  ripples: { symbol: string; state: string; via: string; depth: number }[];
 }
 
 interface PageShape {
@@ -172,7 +173,7 @@ function paritySuite(fx: ParityFixture): void {
       const srcModule = report.modules.find((m: { dir: string }) => m.dir === 'src');
       expect([...srcModule.publicSymbols].sort()).toEqual([...fx.modulePublics].sort());
       expect(srcModule.internalCount).toBe(fx.internalCount);
-      for (const s of report.symbols as Sym[]) {
+      for (const s of report.symbols as (Sym & { kind: string })[]) {
         expect(s.kind).toBe(fx.publicKinds[s.name]);
       }
     });
