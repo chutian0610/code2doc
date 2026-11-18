@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { claimedExtensions } from './extractor/registry.js';
 
 export interface Code2docConfig {
   /** Glob patterns of source files to index. */
@@ -18,13 +19,17 @@ export const CACHE_FILE = path.join(CACHE_DIR, 'cache.json');
 
 export function defaultConfig(): Code2docConfig {
   return {
-    include: ['**/*.{ts,tsx,js,jsx,mjs,cjs,java}'],
+    // derived from the registry, the one source of "what counts as
+    // source" — a new language's extensions land here without touching
+    // the core (ADR-0001/0005)
+    include: [`**/*.{${claimedExtensions().map((e) => e.slice(1)).join(',')}}`],
     exclude: [
       'node_modules/**',
       'dist/**',
       'code2doc/**',
       `${CACHE_DIR}/**`,
       'coverage/**',
+      // TS-family concession: declaration files match .ts but are not source
       '**/*.d.ts',
     ],
     docRoot: 'code2doc',

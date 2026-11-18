@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'no
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { buildCli, copyFixture, run, tsFixture } from './helpers';
+import { claimedExtensions } from '../../src/extractor/registry.js';
 
 describe('code2doc CLI', () => {
   beforeAll(buildCli);
@@ -26,6 +27,12 @@ describe('code2doc CLI', () => {
     const config = JSON.parse(readFileSync(path.join(dir, 'code2doc.config.json'), 'utf8'));
     expect(config.docRoot).toBe('code2doc');
     expect(config.include.length).toBeGreaterThan(0);
+    // the default include derives from the registry: every extension a
+    // registered language claims must be covered, so a new language's
+    // files land in the index without touching the core (#30)
+    for (const ext of claimedExtensions()) {
+      expect(config.include.join(' ')).toContain(ext.slice(1));
+    }
   });
 
   it('init reports discovered modules and public symbols as JSON', () => {

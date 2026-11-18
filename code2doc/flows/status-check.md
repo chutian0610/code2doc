@@ -5,7 +5,7 @@ anchored along the path it walks. (The same pipeline runs with `--json`;
 only the printing differs.)
 
 1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:c0995b9610c50e1c.2211906181ad6c9f")
-   starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
+   starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:725016afd4409553.bc6c0dc5abcbce32"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 
 2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.54126260b3358a35") globs the

@@ -49,7 +49,10 @@ converts a tree-sitter node to a [Span](../../src/extractor/types.ts "c2d:src/ex
 ## `registry.ts` — dispatch by extension
 
 [extractorForFile](../../src/extractor/registry.ts "c2d:src/extractor/registry.ts#extractorForFile:205bcbf1cfc8f4e1.f9cda4200ff97c92") maps a
-file to its extractor by extension. The registry holds one shared,
+file to its extractor by extension; [claimedExtensions](../../src/extractor/registry.ts "c2d:src/extractor/registry.ts#claimedExtensions:364b8ef5fa6b3214.f4a99567011edc78")
+exposes what they claim — the one source the core's default include
+derives from (#30), so a new language's files land in the index without
+touching config. The registry holds one shared,
 stateless instance per language; adding a language is appending one
 entry — see the [howto](../howtos/add-a-language.md).
 

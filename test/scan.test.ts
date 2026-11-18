@@ -7,6 +7,7 @@ import path from 'node:path';
 // must report by name (#23). Files other than .boom claim no extractor,
 // exactly like the real registry.
 vi.mock('../src/extractor/registry.js', () => ({
+  claimedExtensions: () => ['.boom'],
   extractorForFile: (file: string) =>
     file.endsWith('.boom')
       ? {
