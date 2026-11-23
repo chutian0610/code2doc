@@ -179,7 +179,7 @@ function importBinding(decl: SyntaxNode): void | [string, ImportBinding] {
 }
 
 function makeRecord(
-  code: Buffer,
+  code: string,
   decl: SyntaxNode,
   name: string,
   file: string,
@@ -214,7 +214,6 @@ export function createJavaExtractor(): Extractor {
       const query = new Query(language, QUERY);
       const comments = collectComments(language, tree, COMMENT_QUERY);
 
-      const bytes = Buffer.from(code, 'utf8');
       const records: SymbolRecord[] = [];
       for (const { captures } of query.matches(tree.rootNode)) {
         const decl = captures.find((c) => c.name === 'decl')?.node;
@@ -223,7 +222,7 @@ export function createJavaExtractor(): Extractor {
         if (!isTopLevelType(decl) && !isMethodOfTopLevelType(decl)) continue;
 
         const name = code.slice(nameNode.startIndex, nameNode.endIndex);
-        records.push(makeRecord(bytes, decl, name, file, comments));
+        records.push(makeRecord(code, decl, name, file, comments));
       }
       return records;
     },

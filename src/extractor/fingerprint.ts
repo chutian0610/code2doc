@@ -46,17 +46,23 @@ export function spanOf(node: SyntaxNode): Span {
  * edits from producing false Drift signals (T2's no-false-signal
  * criterion) while keeping single-space differences — inside string
  * literals especially — significant, so real changes are never missed.
+ *
+ * Slices the source STRING, never bytes: web-tree-sitter's node offsets
+ * are string indices, and byte-slicing a Buffer with them shifts the
+ * window by the multibyte excess above the span — a file with a single
+ * em dash would hash the wrong bytes and every fingerprint below the
+ * dash would drift when unrelated text above it changed.
  */
-function spanText(bytes: Buffer, start: number, end: number, comments: CommentRange[]): string {
+function spanText(code: string, start: number, end: number, comments: CommentRange[]): string {
   const parts: string[] = [];
   let cursor = start;
   for (const [cs, ce] of comments) {
     if (ce <= cursor) continue;
     if (cs >= end) break;
-    if (cs > cursor) parts.push(bytes.toString('utf8', cursor, cs));
+    if (cs > cursor) parts.push(code.slice(cursor, cs));
     cursor = Math.max(ce, cursor);
   }
-  if (cursor < end) parts.push(bytes.toString('utf8', cursor, end));
+  if (cursor < end) parts.push(code.slice(cursor, end));
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
@@ -64,15 +70,15 @@ function hash(text: string): string {
   return createHash('sha1').update(text).digest('hex').slice(0, FINGERPRINT_HEX);
 }
 
-/** Fingerprint of a signature/body span pair against the source bytes. */
+/** Fingerprint of a signature/body span pair against the source text. */
 export function fingerprintOf(
-  bytes: Buffer,
+  code: string,
   signature: Span,
   body: Span,
   comments: CommentRange[],
 ): Fingerprint {
   return {
-    signature: hash(spanText(bytes, signature.start, signature.end, comments)),
-    body: hash(spanText(bytes, body.start, body.end, comments)),
+    signature: hash(spanText(code, signature.start, signature.end, comments)),
+    body: hash(spanText(code, body.start, body.end, comments)),
   };
 }

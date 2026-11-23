@@ -14,8 +14,10 @@ export type SymbolKind =
   | 'variable';
 
 /**
- * A region of source text. Offsets are UTF-8 byte offsets into the file
- * (as produced by tree-sitter); row/col describe the start position.
+ * A region of source text. Offsets are string indices into the source —
+ * web-tree-sitter reports node offsets in string units, and hashing
+ * slices the source string with them (never bytes: the two diverge on
+ * any multibyte character). row/col describe the start position.
  */
 export interface Span {
   start: number;

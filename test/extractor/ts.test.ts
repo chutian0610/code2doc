@@ -137,6 +137,24 @@ describe('fingerprint invariance (T2: no false signals)', () => {
     return symbols.find((s) => s.name === 'greet')!;
   };
 
+  it('ignores multibyte characters ABOVE the symbol — offsets are string units, not bytes', async () => {
+    // web-tree-sitter reports node offsets in string units; hashing byte
+    // slices with them shifted every window below a non-ASCII char, so an
+    // unrelated upstream comment edit faked drift on untouched symbols
+    const extractor = createTsExtractor();
+    const commented = `// notes — with an em dash
+${BASE}`;
+    const before = await extractOne(commented);
+    const moreText = (await extractOne(commented.replace('an em dash', 'an em dash, more words')))!;
+    expect(moreText.fingerprint).toEqual(before.fingerprint);
+    // a bigger, wider shift (3-byte and CJK chars) must not move it either
+    const muchMore = (await extractOne(commented.replace('—', '——（中文注释）')))!;
+    expect(muchMore.fingerprint).toEqual(before.fingerprint);
+    // while an edit to the symbol itself still registers
+    const edited = await extractOne(commented.replace("'hello '", "'hi '"));
+    expect(edited.fingerprint).not.toEqual(before.fingerprint);
+  });
+
   it('ignores comments inside the body', async () => {
     const commented = `export function greet(name: string): string {
   // enthusiastic greeting

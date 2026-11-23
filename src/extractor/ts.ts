@@ -138,7 +138,7 @@ const DECL_SHAPES: Record<string, DeclShape> = {
 };
 
 function makeRecord(
-  code: Buffer,
+  code: string,
   decl: SyntaxNode,
   shape: DeclShape,
   name: string,
@@ -343,7 +343,6 @@ export function createTsExtractor(): Extractor {
       const query = new Query(language, QUERY);
       const comments = collectComments(language, tree, COMMENT_QUERY);
 
-      const bytes = Buffer.from(code, 'utf8');
       const records: SymbolRecord[] = [];
       for (const { captures } of query.matches(tree.rootNode)) {
         const decl = captures.find((c) => c.name === 'decl')?.node;
@@ -355,7 +354,7 @@ export function createTsExtractor(): Extractor {
         if (!shape) continue;
         const name = code.slice(nameNode.startIndex, nameNode.endIndex);
         const visibility = decl.parent?.type === 'export_statement' ? 'public' : 'internal';
-        records.push(makeRecord(bytes, decl, shape, name, file, visibility, comments));
+        records.push(makeRecord(code, decl, shape, name, file, visibility, comments));
       }
       return records;
     },

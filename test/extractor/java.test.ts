@@ -161,6 +161,33 @@ describe('Java fingerprint invariance (T2 parity: no false signals)', () => {
     return symbols.find((s) => s.name === 'greet')!;
   };
 
+  it('ignores multibyte comments ABOVE the symbol — a Chinese comment hashes the right window', async () => {
+    // parity with the TS extractor: offsets are string units, so non-ASCII
+    // text above the symbol must not shift its fingerprint
+    const extractor = createJavaExtractor();
+    const commented = `/** 中文注释 — 记录一些说明。 */
+public class Greeter {
+  public String greet(String name) {
+    return "hello " + name;
+  }
+}
+`;
+    const before = (await extractor.extract(commented, 'src/Greeter.java')).find(
+      (s) => s.name === 'greet',
+    )!;
+    const moreText = (await extractor.extract(
+      commented.replace('记录一些说明', '记录更多说明文字'),
+      'src/Greeter.java',
+    )).find((s) => s.name === 'greet')!;
+    expect(moreText.fingerprint).toEqual(before.fingerprint);
+    // an edit to the symbol itself still registers
+    const edited = (await extractor.extract(
+      commented.replace('"hello "', '"hi "'),
+      'src/Greeter.java',
+    )).find((s) => s.name === 'greet')!;
+    expect(edited.fingerprint).not.toEqual(before.fingerprint);
+  });
+
   it('ignores comments inside the body', async () => {
     const commented = `public class Greeter {
   public String greet(String name) {
