@@ -7,16 +7,16 @@ Adding a language is config and tests, not core surgery. The steps, in
 order:
 
 1. **Implement the contract.** One file in `src/extractor/`, exporting a
-   factory returning an [Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:38e77578458770bd.38e77578458770bd"):
+   factory returning an [Extractor](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Extractor:a32f1f281dc2d9bc.a32f1f281dc2d9bc"):
    a language id, the extensions it claims, and one `extract` that
-   returns [SymbolRecord](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolRecord:2a1b18c8ccab6ec3.2a1b18c8ccab6ec3")s —
+   returns [SymbolRecord](../../src/extractor/types.ts "c2d:src/extractor/types.ts#SymbolRecord:4f5ed6548ed7782a.4f5ed6548ed7782a")s —
    name, kind, spans, [Visibility](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Visibility:75e723b0d2e1b720.75e723b0d2e1b720")
    and the [Fingerprint](../../src/extractor/types.ts "c2d:src/extractor/types.ts#Fingerprint:0ea1cb3c50e1c4a4.0ea1cb3c50e1c4a4") pair.
 
 2. **Share the fingerprint machinery.** Do not hash by hand: run the
-   declaration's spans through [fingerprintOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#fingerprintOf:d0d749fafd450f2a.93f9479fdda81ea1")
-   with the file's comment ranges ([CommentRange](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#CommentRange:43459109b54c06be.43459109b54c06be"),
-   [spanOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#spanOf:9a327a1cfa5ea5bd.a19e90b18b5b369d") for the spans). Two
+   declaration's spans through [fingerprintOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#fingerprintOf:e23fadfc0ac0d387.0aa63e736236223f")
+   with the file's comment ranges ([CommentRange](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#CommentRange:5495c57a5d55d259.5495c57a5d55d259"),
+   [spanOf](../../src/extractor/fingerprint.ts "c2d:src/extractor/fingerprint.ts#spanOf:999a07146b37a9e7.aa64b4be1098d0da") for the spans). Two
    extractors that hash the same text the same way are what makes anchor
    verification language-blind.
 
@@ -25,8 +25,8 @@ order:
    for name collisions in `file#name` lookup — that is why Java skips
    constructors), what public means in that language, and where the
    signature ends and the body begins. References:
-   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:485d461695b6cc92.82c48c3f0a76517d") and
-   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:587eb227fb05f69b.abdc83efb10dff2f").
+   [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:897c7bab7910f380.b44f82a71af16ccb") and
+   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:794c96c564860aec.7519b6c000146bf7").
 
 4. **Register it.** Append the factory's instance to the registry list
    in `src/extractor/registry.ts`; dispatch is already extension-based

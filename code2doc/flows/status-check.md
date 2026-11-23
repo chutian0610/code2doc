@@ -4,40 +4,40 @@ What happens between `code2doc status` and the exit code — one pass,
 anchored along the path it walks. (The same pipeline runs with `--json`;
 only the printing differs.)
 
-1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:c0995b9610c50e1c.2211906181ad6c9f")
-   starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:725016afd4409553.bc6c0dc5abcbce32"); no config file is
+1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.d9b570fa2b8e8d3a")
+   starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 
-2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.54126260b3358a35") globs the
+2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:44a4ee3dd8d89493.4975be28484245ee") globs the
    config's scope and parses every file whose content hash differs from
-   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:38e70f711a1e42ee.a61a914d89b56ef9") had — unchanged files keep
+   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:d199be599b896a44.281e32bb0e466c8e") had — unchanged files keep
    their cached symbols, so a fresh clone and a warm one reach the same
-   state. [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:e977b693b56fe94a.c0d806b90168a75f") persists it; the cache
+   state. [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:5f6e581b2336294e.1d26fc3a62332338") persists it; the cache
    is derived state, safe to delete and rebuild.
 
-3. **Validate the manifest.** [loadManifest](../../src/manifest.ts "c2d:src/manifest.ts#loadManifest:5e1332b8bf04023d.bfc45f9f5785f349")
-   plus [validateManifest](../../src/manifest.ts "c2d:src/manifest.ts#validateManifest:41444e9a05a7d3f9.c59587939818b583"): an
+3. **Validate the manifest.** [loadManifest](../../src/manifest.ts "c2d:src/manifest.ts#loadManifest:f2c94c8f5ae0433c.bc1af986463367bc")
+   plus [validateManifest](../../src/manifest.ts "c2d:src/manifest.ts#validateManifest:41444e9a05a7d3f9.c2e93e39bdb17239"): an
    unknown page type or a module page without a `module` mapping is a
    shape error and fails the tool, naming the offender — the manifest is
    Operator-written repo content, not something to soft-report.
 
 4. **Check each declared page.** For every entry:
-   [parseAnchors](../../src/anchors.ts "c2d:src/anchors.ts#parseAnchors:ef56a471973b6c71.83fe700be2c5b454") lifts the `c2d:` titles
-   out of the page's links and [checkAnchor](../../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:693df525b389ace2.3f6fa8c3a096c759")
+   [parseAnchors](../../src/anchors.ts "c2d:src/anchors.ts#parseAnchors:f0531fdb78295467.43fd96a4cb258eb7") lifts the `c2d:` titles
+   out of the page's links and [checkAnchor](../../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:f32562f5b831fb30.021c2c52dc1e1724")
    resolves each against the fresh index — symbol gone or signature
    changed → Broken, body changed → Drift, match → fresh. An anchor
    that is itself fresh is then checked for **Ripple** (ADR-0004):
-   [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.bb07d1e890667e0e") builds the call graph
+   [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:13b5e4b33c6eaa21.8eb8d28601fd8d41") builds the call graph
    from the *previous* cache (the graph as of the last status, so a
    deleted callee still ripples its caller),
-   [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:06c27617a69bca2f.65e6794762cd3cd5") diffs the two caches,
-   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:ae0ccb7b1da64e97.366febadf79cca0f") walks the change
+   [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:d871e26c5986a3b2.ff5de7d8e66e5d60") diffs the two caches,
+   and [ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:7101e46f70922035.e5da30e9c91def8d") walks the change
    set backwards over caller edges, so a ripple reaches any depth and
    names each stale callee with `via` and `depth`. No previous cache —
    fresh clone or foreign version — means no baseline and a
    ripple-silent run.
-   [parseDocLinks](../../src/links.ts "c2d:src/links.ts#parseDocLinks:26178a996c82d648.f9d1589bc70eafdf") resolves the remaining
-   in-tree links and [checkDocLink](../../src/links.ts "c2d:src/links.ts#checkDocLink:27cbad79803870e7.9ddbeef5665350b7") tests
+   [parseDocLinks](../../src/links.ts "c2d:src/links.ts#parseDocLinks:8ad41bf389fb761a.29be1a1aa03017ca") resolves the remaining
+   in-tree links and [checkDocLink](../../src/links.ts "c2d:src/links.ts#checkDocLink:3f7eb5da9812d2ce.56906fe279fab0ed") tests
    target existence — a renamed page leaves Broken links behind. A
    **module** page is additionally audited for public exports of its
    mapped directory with no anchor on the page (Missing), and a mapping

@@ -10,19 +10,19 @@ When the code moves, the anchors say so.
 
 Two commands, dispatched by `src/cli.ts`:
 
-- [runInit](../src/commands/init.ts "c2d:src/commands/init.ts#runInit:1a8aeb128109ced2.6aa468b5d536f21a") sets a repo up: config, an
+- [runInit](../src/commands/init.ts "c2d:src/commands/init.ts#runInit:b9a5aa6abd9d8b1c.b6702a806487a9e3") sets a repo up: config, an
   empty manifest, a doc-tree skeleton and a symbol index whose public
   symbols carry the fingerprints the Operator will anchor with.
-- [runStatus](../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:c0995b9610c50e1c.2211906181ad6c9f") is the product: it
+- [runStatus](../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.d9b570fa2b8e8d3a") is the product: it
   re-indexes the code, checks every declared page and reports
   **Broken**, **Drift**, **Ripple** and **Missing** with exit codes
   0/1/2.
 
 The checking machinery lives in the [core module](modules/core.md):
-[scan](../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.54126260b3358a35") builds the symbol cache (file hashes gate
-re-parses), [checkAnchor](../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:693df525b389ace2.3f6fa8c3a096c759") compares an
+[scan](../src/cache.ts "c2d:src/cache.ts#scan:44a4ee3dd8d89493.4975be28484245ee") builds the symbol cache (file hashes gate
+re-parses), [checkAnchor](../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:f32562f5b831fb30.021c2c52dc1e1724") compares an
 anchor's fingerprint against the cache, and
-[validateManifest](../src/manifest.ts "c2d:src/manifest.ts#validateManifest:41444e9a05a7d3f9.c59587939818b583") guards the
+[validateManifest](../src/manifest.ts "c2d:src/manifest.ts#validateManifest:41444e9a05a7d3f9.c2e93e39bdb17239") guards the
 declared page list — shape errors are tool failures, never signals.
 
 Language extraction hides behind one interface:

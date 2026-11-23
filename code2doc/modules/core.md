@@ -11,96 +11,98 @@ anchor here.
 
 An anchor is a plain markdown link whose title carries the whole machine
 payload (`c2d:<file>#<name>:<signature>.<body>`); the URL stays a
-clickable link for Readers. [parseMarkdownLinks](../../src/anchors.ts "c2d:src/anchors.ts#parseMarkdownLinks:d7a5a94f54c10100.1fa400de5430428d")
-finds every inline link, [parseAnchorTitle](../../src/anchors.ts "c2d:src/anchors.ts#parseAnchorTitle:74447079f1dbf865.ecb55f854815015d")
-decodes `c2d:` titles, [parseAnchors](../../src/anchors.ts "c2d:src/anchors.ts#parseAnchors:ef56a471973b6c71.83fe700be2c5b454") chains
+clickable link for Readers. [parseMarkdownLinks](../../src/anchors.ts "c2d:src/anchors.ts#parseMarkdownLinks:505bf6e77f55f3ce.2a47641f2a72a634")
+finds every inline link, [parseAnchorTitle](../../src/anchors.ts "c2d:src/anchors.ts#parseAnchorTitle:5d028983559eeac4.b0d678849cd223d0")
+decodes `c2d:` titles, [parseAnchors](../../src/anchors.ts "c2d:src/anchors.ts#parseAnchors:f0531fdb78295467.43fd96a4cb258eb7") chains
 the two into a page's anchor list. Verification is
-[checkAnchor](../../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:693df525b389ace2.3f6fa8c3a096c759"): lookup by file + name only
+[checkAnchor](../../src/anchors.ts "c2d:src/anchors.ts#checkAnchor:f32562f5b831fb30.021c2c52dc1e1724"): lookup by file + name only
 (cache-local rows never break on line shifts), then signature mismatch →
-broken, body mismatch → drift, match → fresh. A vanished symbol gets
+broken — with an advisory note naming the first declaration's payload when
+the written fingerprint matched a later Java overload (ADR-0006) —,
+body mismatch → drift, match → fresh. A vanished symbol gets
 advisory rename candidates from
-[renameCandidates](../../src/anchors.ts "c2d:src/anchors.ts#renameCandidates:68cb0299f7e0bf9c.1483cf33ff6cfbf2"):
+[renameCandidates](../../src/anchors.ts "c2d:src/anchors.ts#renameCandidates:3a0a93fb2a80d634.9031534734018be4"):
 the ladder itself is
-[worse](../../src/anchors.ts "c2d:src/anchors.ts#worse:e7ac2ade00f1c7d5.6b569538f8dd70d8")
+[worse](../../src/anchors.ts "c2d:src/anchors.ts#worse:418fa878d36b4a46.c85cb1b2c9cf79bf")
 defined once, and
-[anchorVerdict](../../src/anchors.ts "c2d:src/anchors.ts#anchorVerdict:c5a4f893bb2c2f10.7c08c55ddd428eb3")
+[anchorVerdict](../../src/anchors.ts "c2d:src/anchors.ts#anchorVerdict:e22e68f788212727.ff55ae4202c88673")
 pairs each state with its reason as one typed fact (ripple only when
 the check itself is fresh). A vanished symbol gets advisory rename
 candidates: a signature-exact match elsewhere (a pure move), a same-name symbol, or
 an unchanged body (a pure rename — the signature carries the name, so
 it necessarily changed); ≤3, never a state or an exit code.
 
-- [Anchor](../../src/anchors.ts "c2d:src/anchors.ts#Anchor:727524e555db432b.727524e555db432b") — one parsed anchor: text, target, file, name, fingerprint, line
-- [MarkdownLink](../../src/anchors.ts "c2d:src/anchors.ts#MarkdownLink:3ce1f36acb740dac.3ce1f36acb740dac") — any inline link, title optional
-- [AnchorPayload](../../src/anchors.ts "c2d:src/anchors.ts#AnchorPayload:95dc76e161fcd68f.95dc76e161fcd68f") — the `c2d:` payload without the link around it
-- [AnchorState](../../src/anchors.ts "c2d:src/anchors.ts#AnchorState:931b1fd49c036623.931b1fd49c036623") — `fresh | drift | ripple | broken`, also the page-state ladder
-- [AnchorReason](../../src/anchors.ts "c2d:src/anchors.ts#AnchorReason:af8682aecd06428b.af8682aecd06428b") — `''` / `symbol gone` / `signature changed` / `body changed` / `callee went stale`
-- [AnchorCheck](../../src/anchors.ts "c2d:src/anchors.ts#AnchorCheck:c87c463cdc3bc96a.c87c463cdc3bc96a") — one check's state plus reason
-- [AnchorVerdict](../../src/anchors.ts "c2d:src/anchors.ts#AnchorVerdict:ba96ff106836d151.ba96ff106836d151") — state and reason as one typed fact
+- [Anchor](../../src/anchors.ts "c2d:src/anchors.ts#Anchor:e3b6a229485f2286.e3b6a229485f2286") — one parsed anchor: text, target, file, name, fingerprint, line
+- [MarkdownLink](../../src/anchors.ts "c2d:src/anchors.ts#MarkdownLink:049f9968c7a34a42.049f9968c7a34a42") — any inline link, title optional
+- [AnchorPayload](../../src/anchors.ts "c2d:src/anchors.ts#AnchorPayload:1cedc1ad744641e2.1cedc1ad744641e2") — the `c2d:` payload without the link around it
+- [AnchorState](../../src/anchors.ts "c2d:src/anchors.ts#AnchorState:747d5b298d95e83f.747d5b298d95e83f") — `fresh | drift | ripple | broken`, also the page-state ladder
+- [AnchorReason](../../src/anchors.ts "c2d:src/anchors.ts#AnchorReason:0000933b2f96387f.0000933b2f96387f") — `''` / `symbol gone` / `signature changed` / `body changed` / `callee went stale`
+- [AnchorCheck](../../src/anchors.ts "c2d:src/anchors.ts#AnchorCheck:46f19f10b2c96cdf.46f19f10b2c96cdf") — one check's state plus reason, plus an advisory note when the payload named a later overload (ADR-0006)
+- [AnchorVerdict](../../src/anchors.ts "c2d:src/anchors.ts#AnchorVerdict:0467e0ff2cd7e84f.0467e0ff2cd7e84f") — state and reason as one typed fact
 
 ## `cache.ts` — derived state, rebuildable at any time
 
-[CacheData](../../src/cache.ts "c2d:src/cache.ts#CacheData:a6c1b97e761d0c28.a6c1b97e761d0c28") is the whole cache: per-file
+[CacheData](../../src/cache.ts "c2d:src/cache.ts#CacheData:3d4ed70352e82fb6.3d4ed70352e82fb6") is the whole cache: per-file
 content hash plus extracted symbols plus call refs, version-gated so a
 foreign algorithm triggers a rebuild instead of poisoning checks.
-[scan](../../src/cache.ts "c2d:src/cache.ts#scan:d18e418017cff803.54126260b3358a35") globs the config's include/exclude, routes
+[scan](../../src/cache.ts "c2d:src/cache.ts#scan:44a4ee3dd8d89493.4975be28484245ee") globs the config's include/exclude, routes
 each file to its extractor and reuses cached symbols and refs whenever
 [fileHash](../../src/cache.ts "c2d:src/cache.ts#fileHash:7b8e31f77c8bcd72.eeea8db4839d041e") matches (ADR-0002: file-level
 detection, symbol-level semantics); an extraction failure rethrows
-naming the file — loud, never skipped (#23). [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:38e70f711a1e42ee.a61a914d89b56ef9")
-and [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:e977b693b56fe94a.c0d806b90168a75f") persist it under the ignored
-`.code2doc/`; [allSymbols](../../src/cache.ts "c2d:src/cache.ts#allSymbols:c2cf72eb3857a844.ab0e49aec435dd1e") flattens it for
+naming the file — loud, never skipped (#23). [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:d199be599b896a44.281e32bb0e466c8e")
+and [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:5f6e581b2336294e.1d26fc3a62332338") persist it under the ignored
+`.code2doc/`; [allSymbols](../../src/cache.ts "c2d:src/cache.ts#allSymbols:d6217b9524e24d42.d74afeac0125efae") flattens it for
 coverage checks.
 
 ## `ripple.ts` — call edges and the cache baseline
 
-[resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:f928c71ba22598e0.bb07d1e890667e0e") runs the ADR-0004
+[resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:13b5e4b33c6eaa21.8eb8d28601fd8d41") runs the ADR-0004
 disambiguation cascade over the cached call refs — import resolution →
 same-file uniqueness → global-name uniqueness → no edge — where import
 resolution dispatches to the file's extractor (ADR-0005: the core knows
 no specifier forms), a name claimed by an import never falls through,
 and an ambiguous name yields nothing (a missing edge is tolerated, a
 false edge never is).
-[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:06c27617a69bca2f.65e6794762cd3cd5") diffs the previous
+[changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:d871e26c5986a3b2.ff5de7d8e66e5d60") diffs the previous
 status cache into the changed set (gone or signature moved → broken,
 body moved → drift; additions are not changes), with a key that carries
 several declarations — Java overloads — compared as a whole set so an
 unedited pair of overloads never reads as a change (ADR-0006), and
-[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:ae0ccb7b1da64e97.366febadf79cca0f") propagates it:
+[ripplesUnder](../../src/ripple.ts "c2d:src/ripple.ts#ripplesUnder:7101e46f70922035.e5da30e9c91def8d") propagates it:
 reverse single-source reachability from each changed symbol over caller
 edges, keeping the shortest path — `via` is the reached symbol's own
 callee on it, `depth` its length — so closure cost scales with the
 change set, not the anchor count. The pairing itself is one module,
-[buildBaseline](../../src/ripple.ts "c2d:src/ripple.ts#buildBaseline:1b73522f77adb364.210b1c9af3a9e52c"):
+[buildBaseline](../../src/ripple.ts "c2d:src/ripple.ts#buildBaseline:3917156f1257b61e.7cdd4dd3be09987f"):
 edges from the previous cache, the diff against the current one — a
 callee deleted since the last status still ripples its caller — behind
-the single-method [Baseline](../../src/ripple.ts "c2d:src/ripple.ts#Baseline:1593af5baf8721d2.1593af5baf8721d2")
+the single-method [Baseline](../../src/ripple.ts "c2d:src/ripple.ts#Baseline:e5b8deaa90f7a60a.e5b8deaa90f7a60a")
 interface the status pass queries.
 
-- [EdgeMap](../../src/ripple.ts "c2d:src/ripple.ts#EdgeMap:3c402fddea2aa1e0.3c402fddea2aa1e0") — resolved caller → callee keys, both `file#name`
-- [ChangeState](../../src/ripple.ts "c2d:src/ripple.ts#ChangeState:34f10af966d35a15.34f10af966d35a15") — `broken | drift`, how a callee moved
-- [ChangeMap](../../src/ripple.ts "c2d:src/ripple.ts#ChangeMap:c56448f26ef729c4.c56448f26ef729c4") — symbols that moved since the last status
-- [Ripple](../../src/ripple.ts "c2d:src/ripple.ts#Ripple:f6cb35cf89fda1ea.f6cb35cf89fda1ea") — one stale callee with its propagation path (`via`, `depth`)
+- [EdgeMap](../../src/ripple.ts "c2d:src/ripple.ts#EdgeMap:8780aa0d09f93d18.8780aa0d09f93d18") — resolved caller → callee keys, both `file#name`
+- [ChangeState](../../src/ripple.ts "c2d:src/ripple.ts#ChangeState:115eb126e3e7312d.115eb126e3e7312d") — `broken | drift`, how a callee moved
+- [ChangeMap](../../src/ripple.ts "c2d:src/ripple.ts#ChangeMap:a258baa5e9299fa2.a258baa5e9299fa2") — symbols that moved since the last status
+- [Ripple](../../src/ripple.ts "c2d:src/ripple.ts#Ripple:4ed595692d938751.4ed595692d938751") — one stale callee with its propagation path (`via`, `depth`)
 
 ## `config.ts` — one file, whole scope
 
 [Code2docConfig](../../src/config.ts "c2d:src/config.ts#Code2docConfig:6273b87446a35359.6273b87446a35359") holds include/exclude
-globs, doc root and doc language; [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:725016afd4409553.bc6c0dc5abcbce32")
-fills gaps from [defaultConfig](../../src/config.ts "c2d:src/config.ts#defaultConfig:800dfddfa27602a2.d8fb9fe8fd7b9fb1") and
-[saveConfig](../../src/config.ts "c2d:src/config.ts#saveConfig:219fb900ed3c4490.bd59d5f9788c1444") writes
+globs, doc root and doc language; [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7")
+fills gaps from [defaultConfig](../../src/config.ts "c2d:src/config.ts#defaultConfig:800dfddfa27602a2.2c030f220de4d2c2") and
+[saveConfig](../../src/config.ts "c2d:src/config.ts#saveConfig:7167d8c756ff0d9b.69fc16873d99f8fd") writes
 [CONFIG_FILE](../../src/config.ts "c2d:src/config.ts#CONFIG_FILE:eed85beddc3696fd.f9ea712816df3bba") (`code2doc.config.json`).
 [CACHE_DIR](../../src/config.ts "c2d:src/config.ts#CACHE_DIR:8c412effebaf70c9.0d6a56f5968394a3") and
 [CACHE_FILE](../../src/config.ts "c2d:src/config.ts#CACHE_FILE:18751b3783cb068d.524be56b3505bc19") name the derived-state
-location; [configPath](../../src/config.ts "c2d:src/config.ts#configPath:0da3c6bc31edc962.6b8fc3069cbd08a3") resolves it against
+location; [configPath](../../src/config.ts "c2d:src/config.ts#configPath:15f51c8f8224248b.150062e2ba1103e6") resolves it against
 a repo root.
 
 ## `links.ts` — doc-to-doc links
 
 Ordinary markdown links between pages are checked for target existence
-only — never semantics. [parseDocLinks](../../src/links.ts "c2d:src/links.ts#parseDocLinks:26178a996c82d648.f9d1589bc70eafdf")
+only — never semantics. [parseDocLinks](../../src/links.ts "c2d:src/links.ts#parseDocLinks:8ad41bf389fb761a.29be1a1aa03017ca")
 resolves a page's links the way a renderer would (relative to the page's
 real directory, skipping externals, same-page fragments, images and
-anchors); [checkDocLink](../../src/links.ts "c2d:src/links.ts#checkDocLink:27cbad79803870e7.9ddbeef5665350b7") is the existence
+anchors); [checkDocLink](../../src/links.ts "c2d:src/links.ts#checkDocLink:3f7eb5da9812d2ce.56906fe279fab0ed") is the existence
 test. A missing target is Broken, like any stale claim.
 
 - [DocLink](../../src/links.ts "c2d:src/links.ts#DocLink:41f218fe30f73807.41f218fe30f73807") — one resolved in-tree link: target as written, resolved path, line
@@ -115,12 +117,12 @@ happens to sit in the doc root. [PAGE_TYPES](../../src/manifest.ts "c2d:src/mani
 fixes the five types (overview / module / flow / howto / reference); the
 type decides the checking policy, and only **module** pages map a source
 directory via [PageEntry](../../src/manifest.ts "c2d:src/manifest.ts#PageEntry:dce3b3f26da0d481.dce3b3f26da0d481").
-[validateManifest](../../src/manifest.ts "c2d:src/manifest.ts#validateManifest:41444e9a05a7d3f9.c59587939818b583") makes shape
+[validateManifest](../../src/manifest.ts "c2d:src/manifest.ts#validateManifest:41444e9a05a7d3f9.c2e93e39bdb17239") makes shape
 violations tool failures that name the offender.
-[manifestPath](../../src/manifest.ts "c2d:src/manifest.ts#manifestPath:9af370dee14720d4.f8f1b0637c22ce04"),
-[loadManifest](../../src/manifest.ts "c2d:src/manifest.ts#loadManifest:5e1332b8bf04023d.bfc45f9f5785f349"),
-[saveManifest](../../src/manifest.ts "c2d:src/manifest.ts#saveManifest:d3521aff761dc207.de83f0e5debbd8de") and
-[emptyManifest](../../src/manifest.ts "c2d:src/manifest.ts#emptyManifest:bbbc095aba5dfc00.edd5c107277feaa4") are the persistence
+[manifestPath](../../src/manifest.ts "c2d:src/manifest.ts#manifestPath:50b4047191f461b9.944609c1e3f3b98e"),
+[loadManifest](../../src/manifest.ts "c2d:src/manifest.ts#loadManifest:f2c94c8f5ae0433c.bc1af986463367bc"),
+[saveManifest](../../src/manifest.ts "c2d:src/manifest.ts#saveManifest:e31c973b403e6e15.ff39d0d9804bea82") and
+[emptyManifest](../../src/manifest.ts "c2d:src/manifest.ts#emptyManifest:c785f7561d33954b.f5f6072c231e8671") are the persistence
 plumbing.
 
 - [PageType](../../src/manifest.ts "c2d:src/manifest.ts#PageType:a63e12aca57f45e4.a63e12aca57f45e4") — one of the five types
