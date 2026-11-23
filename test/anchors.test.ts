@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { anchorVerdict, renameCandidates, worse } from '../src/anchors.js';
+import { anchorVerdict, checkAnchor, renameCandidates, worse } from '../src/anchors.js';
 import type { CacheData } from '../src/cache.js';
 import type { SymbolRecord } from '../src/extractor/types.js';
 
@@ -84,6 +84,48 @@ describe('renameCandidates (V2-4)', () => {
   it('yields nothing when nothing plausibly matches', () => {
     const cache = cacheOf([sym('src/x.ts', 'other', SIG2, BODY2)]);
     expect(renameCandidates(anchorOf(SIG, BODY), cache)).toEqual([]);
+  });
+});
+
+describe('checkAnchor overload notes (ADR-0006)', () => {
+  // the Key.get shape: an internal first declaration ahead of a public one
+  const family = cacheOf([
+    sym('src/x.ts', 'get', SIG, BODY),
+    sym('src/x.ts', 'get', SIG2, BODY2),
+  ]);
+  const anchorOfOverload = (signature: string, body: string) => ({
+    ...anchorOf(signature, body),
+    name: 'get',
+  });
+
+  it('a fingerprint naming a later overload explains the rule and hands over the payload', () => {
+    const check = checkAnchor(anchorOfOverload(SIG2, BODY2), family);
+    expect(check.state).toBe('broken');
+    expect(check.reason).toBe('signature changed');
+    expect(check.note).toBe(
+      'fingerprint matches overload 2 of 2; anchors verify against ' +
+      'the first declaration in file order, whatever its visibility — ' +
+      `c2d:src/x.ts#get:${SIG}.${BODY}`,
+    );
+  });
+
+  it('the first declaration\'s fingerprint is fresh — the rule\'s target state', () => {
+    expect(checkAnchor(anchorOfOverload(SIG, BODY), family)).toEqual({
+      state: 'fresh',
+      reason: '',
+    });
+  });
+
+  it('an invented fingerprint stays a bare signature change, no note', () => {
+    const invented = 'e'.repeat(16);
+    const check = checkAnchor(anchorOfOverload(invented, BODY), family);
+    expect(check.state).toBe('broken');
+    expect(check.note).toBeUndefined();
+  });
+
+  it('a lone declaration never notes, whatever the mismatch', () => {
+    const lone = cacheOf([sym('src/x.ts', 'get', SIG2, BODY2)]);
+    expect(checkAnchor(anchorOfOverload(SIG, BODY), lone).note).toBeUndefined();
   });
 });
 

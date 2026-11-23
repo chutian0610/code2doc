@@ -27,7 +27,8 @@ installed). Two commands, nothing else: `init` and `status`.
   The URL stays clickable for Readers; the tool reads only the title.
 - **Fingerprint** — two truncated hashes over the symbol's signature
   and body. Lookup is by file + name, so line shifts never break
-  anchors.
+  anchors. Java overloads share one name: verification resolves to the
+  **first declaration in file order**, whatever its visibility.
 - **Signals** — `Broken` (symbol gone or signature changed: rewrite the
   claim), `Drift` (body changed: review the claim), `Ripple` (the anchor
   is fresh but a symbol it calls went stale since the last `status`:
@@ -75,6 +76,12 @@ anchor every public symbol of the mapped directory — the bullets ARE the
 page. Link pages to each other with ordinary relative links; renames
 will surface as Broken links.
 
+Java note: overloaded methods collapse to one `file#name` — anchor the
+**first declaration in file order**, and say which overload you mean in
+the link text. When that first declaration is not `public` it is not in
+the init report: anchor with any fingerprint of the family, run
+`status`, and the drill-down hands you the exact payload to paste.
+
 ### 4. Check
 
 ```
@@ -95,7 +102,9 @@ Run `status` before finishing any task that touched code:
   code, then update the anchor's fingerprint (re-run `init` for the new
   hash). Never paste a new fingerprint over an unrewritten claim. If
   the symbol merely moved or was renamed, the `→ maybe` suggestions
-  point at it — verify one, don't trust it blindly.
+  point at it — verify one, don't trust it blindly. A payload handed
+  over after "signature changed" means the fingerprint named a later
+  Java overload — paste the given one (first-declaration rule).
 - **Drift** — the symbol's body changed. Check whether the claim still
   holds: if yes, refresh the fingerprint; if no, rewrite first.
 - **Ripple** — the anchored symbol itself is untouched, but something

@@ -104,24 +104,54 @@ export type AnchorReason = '' | 'symbol gone' | 'signature changed' | 'body chan
 export interface AnchorCheck {
   state: AnchorState;
   reason: AnchorReason;
+  /**
+   * Advisory for one exact broken shape (ADR-0006): the written
+   * fingerprint names a real later overload while verification resolves
+   * to the first declaration in file order. Carries the payload to
+   * paste; absent for every other anchor.
+   */
+  note?: string;
 }
 
 /**
  * Resolve an anchor against the current symbol cache. Lookup is by
  * file + name only — the row in a symbol id is cache-local, so line
- * shifts never break an anchor.
+ * shifts never break an anchor. Overloads therefore resolve to the
+ * first declaration in file order, whatever its visibility (ADR-0006).
  */
 export function checkAnchor(anchor: Anchor, cache: CacheData): AnchorCheck {
   const symbols = cache.files[anchor.file]?.symbols ?? [];
   const symbol = symbols.find((s) => s.name === anchor.name);
   if (!symbol) return { state: 'broken', reason: 'symbol gone' };
   if (symbol.fingerprint.signature !== anchor.fingerprint.signature) {
-    return { state: 'broken', reason: 'signature changed' };
+    return { state: 'broken', reason: 'signature changed', note: overloadNote(anchor, symbols) };
   }
   if (symbol.fingerprint.body !== anchor.fingerprint.body) {
     return { state: 'drift', reason: 'body changed' };
   }
   return { state: 'fresh', reason: '' };
+}
+
+/**
+ * The one ADR-0006 blind spot worth spelling out: the payload names a
+ * real later overload, the rule wants the first declaration's — say so
+ * and hand the payload over, rather than a bare `signature changed`. An
+ * invented fingerprint matches no declaration and gets no note.
+ */
+function overloadNote(anchor: Anchor, symbols: SymbolRecord[]): string | undefined {
+  const family = symbols.filter((s) => s.name === anchor.name);
+  const at = family.findIndex(
+    (s) =>
+      s.fingerprint.signature === anchor.fingerprint.signature &&
+      s.fingerprint.body === anchor.fingerprint.body,
+  );
+  if (at < 1) return undefined;
+  const first = family[0].fingerprint;
+  return (
+    `fingerprint matches overload ${at + 1} of ${family.length}; anchors verify against ` +
+    `the first declaration in file order, whatever its visibility — ` +
+    `c2d:${anchor.file}#${anchor.name}:${first.signature}.${first.body}`
+  );
 }
 
 /**

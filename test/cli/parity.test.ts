@@ -280,3 +280,96 @@ function paritySuite(fx: ParityFixture): void {
 }
 
 for (const fx of FIXTURES) paritySuite(fx);
+
+/**
+ * The ADR-0006 overload blind spot, end to end: an internal first
+ * declaration ahead of a public one (Guice's Key.get shape). The init
+ * report lists only the public declaration, so the natural authoring
+ * flow writes an anchor that resolves to the internal one — status must
+ * say so and hand over the payload, not a bare `signature changed`.
+ */
+describe('Java overload anchors (ADR-0006)', () => {
+  beforeAll(buildCli);
+
+  const OVERLOADS = `package demo;
+
+public class Overloads {
+
+  static String get(String kind) {
+    return kind;
+  }
+
+  public String get(String kind, String suffix) {
+    return kind + suffix;
+  }
+}
+`;
+
+  /** A pristine java fixture plus the overloads source, cache built. */
+  function fixtureWithOverloads(): { dir: string; report: { symbols: Sym[] } } {
+    const dir = copyFixture(path.join(repoRoot, 'test/fixtures/sample-java'), 'code2doc-overload-');
+    writeFileSync(path.join(dir, 'src', 'Overloads.java'), OVERLOADS, 'utf8');
+    const report = JSON.parse(run(['init'], dir).stdout);
+    return { dir, report };
+  }
+
+  function declareOverloadsPage(dir: string, anchor: string): void {
+    writePage(dir, 'overloads.md', `# overloads\n\n- ${anchor} returns its kind\n`);
+    declarePages(dir, [{ path: 'overloads.md', type: 'reference' }]);
+  }
+
+  /** The cache record of one symbol — internal declarations live only here. */
+  function cacheRecord(dir: string, file: string, name: string): Sym {
+    const cache = JSON.parse(readFileSync(path.join(dir, '.code2doc', 'cache.json'), 'utf8'));
+    return cache.files[file].symbols.find((s: { name: string }) => s.name === name);
+  }
+
+  function firstAnchor(stdout: string): AnchorReportShape & { note?: string } {
+    return (JSON.parse(stdout).pages as PageShape[])[0].anchors[0] as AnchorReportShape & {
+      note?: string;
+    };
+  }
+
+  it('anchoring the public overload breaks with a note carrying the first declaration', () => {
+    const { dir, report } = fixtureWithOverloads();
+    const publicGet = report.symbols.find((s) => s.name === 'get')!;
+    declareOverloadsPage(dir, anchorLink(publicGet));
+
+    const { code, stdout } = run(['status', '--json'], dir);
+    expect(code).toBe(2);
+    const anchor = firstAnchor(stdout);
+    expect(anchor.state).toBe('broken');
+    expect(anchor.reason).toBe('signature changed');
+    const first = cacheRecord(dir, 'src/Overloads.java', 'get').fingerprint;
+    expect(anchor.note).toContain(`c2d:src/Overloads.java#get:${first.signature}.${first.body}`);
+
+    const human = run(['status'], dir).stdout;
+    expect(human).toContain('fingerprint matches overload 2 of 2');
+  });
+
+  it('pasting the handed-over payload is fresh, exit 0', () => {
+    const { dir } = fixtureWithOverloads();
+    declareOverloadsPage(dir, anchorLink(cacheRecord(dir, 'src/Overloads.java', 'get')));
+
+    const { code, stdout } = run(['status', '--json'], dir);
+    expect(code).toBe(0);
+    const anchor = firstAnchor(stdout);
+    expect(anchor.state).toBe('fresh');
+    expect(anchor.note).toBeUndefined();
+  });
+
+  it('an invented fingerprint stays a bare signature change, no note', () => {
+    const { dir } = fixtureWithOverloads();
+    declareOverloadsPage(
+      dir,
+      anchorLink({ file: 'src/Overloads.java', name: 'get', fingerprint: { signature: 'f'.repeat(16), body: 'e'.repeat(16) } }),
+    );
+
+    const { code, stdout } = run(['status', '--json'], dir);
+    expect(code).toBe(2);
+    const anchor = firstAnchor(stdout);
+    expect(anchor.state).toBe('broken');
+    expect(anchor.reason).toBe('signature changed');
+    expect(anchor.note).toBeUndefined();
+  });
+});

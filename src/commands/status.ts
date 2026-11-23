@@ -33,6 +33,12 @@ export interface AnchorReport {
    * never a state or an exit code. Empty for every other anchor.
    */
   candidates: string[];
+  /**
+   * Advisory for exactly one broken shape (ADR-0006): the written
+   * fingerprint names a later overload; carries the payload to paste.
+   * Absent for every other anchor.
+   */
+  note?: string;
   /** 1-based line of the anchor within the page. */
   line: number;
 }
@@ -137,6 +143,7 @@ function reportPage(
       reason: verdict.reason,
       ripples,
       candidates,
+      note: check.note,
       line: anchor.line,
     };
   });
@@ -195,6 +202,7 @@ function detailLines(report: StatusReport, docRoot: string): string[] {
     lines.push(`${path.join(docRoot, page.path)} (${page.type})`);
     for (const anchor of staleAnchors) {
       lines.push(`  ${anchor.state.padEnd(7)} ${anchor.symbol} — ${anchor.reason}`);
+      if (anchor.note) lines.push(`    → ${anchor.note}`);
       for (const ripple of anchor.ripples) {
         lines.push(`    ${ripple.symbol} ${ripple.state} (via ${ripple.via}, ${ripple.depth} hop${ripple.depth === 1 ? '' : 's'})`);
       }
