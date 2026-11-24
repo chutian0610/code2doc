@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { createJavaExtractor } from './java.js';
+import { createPythonExtractor } from './python.js';
 import { createTsExtractor } from './ts.js';
 import type { Extractor } from './types.js';
 
@@ -8,7 +9,11 @@ import type { Extractor } from './types.js';
  * the rest of the core only ever talks to the Extractor interface.
  * One shared instance per language (stateless; wasm loading is cached internally).
  */
-const EXTRACTORS: Extractor[] = [createTsExtractor(), createJavaExtractor()];
+const EXTRACTORS: Extractor[] = [
+  createTsExtractor(),
+  createJavaExtractor(),
+  createPythonExtractor(),
+];
 
 export function extractorForFile(file: string, list: Extractor[] = EXTRACTORS): Extractor | undefined {
   const ext = path.extname(file).toLowerCase();

@@ -105,5 +105,8 @@ adding or removing one is an interface change — and only `#` line
 comments are comments: a docstring is body, so editing one drifts a
 claim instead of breaking it. A same-name redefinition is one record
 per declaration, set-compared downstream under its name key (ADR-0006).
+Its `extractRefs`/`resolveImport` pair is not written yet: until the
+import-resolution work lands, Python files produce no call edges and no
+Ripple — no edge beats a false edge (ADR-0004).
 
 Back to the [overview](../overview.md).

@@ -36,6 +36,7 @@ agent](#with-an-ai-agent).
 | TypeScript / TSX | `.ts` `.tsx`               |
 | JavaScript / JSX | `.js` `.jsx` `.mjs` `.cjs` |
 | Java             | `.java`                    |
+| Python           | `.py`                      |
 
 Adding a language is one extractor plus tests — [the
 how-to](code2doc/howtos/add-a-language.md) walks through it.

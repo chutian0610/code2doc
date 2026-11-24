@@ -19,6 +19,9 @@ class Circle:
 describe('Python extractor', () => {
   it('extracts module-level functions, classes and UPPER_CASE constants with spans', async () => {
     const extractor = createPythonExtractor();
+    // the claim the registry dispatches on — without it the default
+    // include would silently stop covering the language (#34)
+    expect(extractor.extensions).toEqual(['.py']);
     const symbols = await extractor.extract(MODULE, 'src/geometry.py');
 
     expect(symbols.map((s) => s.name)).toEqual(['PI', 'area', 'Circle']);

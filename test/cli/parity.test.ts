@@ -6,9 +6,10 @@ import type { Sym } from './helpers.js';
 
 /**
  * The full Operator flow — init, anchored module page, Drift / Broken /
- * Missing signals, exit codes — run identically against the TS/JS fixture
- * and the Java fixture (T5: languages join at parity by sharing this
- * exact black-box structure, not by imitation).
+ * Missing signals, exit codes — run identically against the TS/JS,
+ * Java and Python fixtures (T5: languages join at parity by sharing this
+ * exact black-box structure, not by imitation). The ripple step runs only
+ * where the language extracts call edges yet.
  */
 
 interface SourceEdits {
@@ -18,7 +19,19 @@ interface SourceEdits {
   signature: (src: string) => string;
   /** Removal of the edited symbol, leaving valid source behind. */
   symbolGone: (src: string) => string;
-  /** Body-only change of the chain callee (V2-3: the ripple trigger). */
+}
+
+/** The ripple chain a language with call edges pins (V2-3). */
+interface RippleChain {
+  /** The anchored caller of the ripple chain, an internal symbol. */
+  chainCaller: string;
+  /** The repo-relative file the chain caller lives in. */
+  chainCallerFile: string;
+  /** The `file#name` the chain caller calls; its body edit triggers the ripple. */
+  chainCallee: string;
+  /** The repo-relative file the chain callee lives in. */
+  chainCalleeFile: string;
+  /** Body-only change of the chain callee (the ripple trigger). */
   calleeBodyOnly: (src: string) => string;
 }
 
@@ -32,14 +45,8 @@ interface ParityFixture {
   sourceFile: string;
   /** The symbol every edit targets (a public symbol of sourceFile). */
   editedSymbol: string;
-  /** The anchored caller of the ripple chain, an internal symbol. */
-  chainCaller: string;
-  /** The repo-relative file the chain caller lives in. */
-  chainCallerFile: string;
-  /** The `file#name` the chain caller calls; its body edit triggers the ripple. */
-  chainCallee: string;
-  /** The repo-relative file the chain callee lives in. */
-  chainCalleeFile: string;
+  /** The ripple chain when the language extracts call edges; false where it does not yet (#35 owns Python's). */
+  ripple: RippleChain | false;
   /** init's kind per public symbol of this fixture. */
   publicKinds: Record<string, string>;
   /** init report numbers. */
@@ -56,17 +63,19 @@ const FIXTURES: ParityFixture[] = [
     fixture: path.join(repoRoot, 'test/fixtures/sample-ts'),
     sourceFile: 'src/greet.ts',
     editedSymbol: 'greet',
-    chainCaller: 'usesHelper',
-    chainCallerFile: 'src/helper.ts',
-    chainCallee: 'src/helper.ts#helper',
-    chainCalleeFile: 'src/helper.ts',
+    ripple: {
+      chainCaller: 'usesHelper',
+      chainCallerFile: 'src/helper.ts',
+      chainCallee: 'src/helper.ts#helper',
+      chainCalleeFile: 'src/helper.ts',
+      calleeBodyOnly: (src) => src.replace('// internal helper, not exported', 'const done = true;'),
+    },
     publicKinds: { greet: 'function', Greeter: 'class', usesHelper: 'function' },
     filesScanned: 2,
     modulePublics: ['greet', 'Greeter', 'usesHelper'],
     internalCount: 2,
     edits: {
       bodyOnly: (src) => src.replace("'hello '", "'hi '"),
-      calleeBodyOnly: (src) => src.replace('// internal helper, not exported', 'const done = true;'),
       signature: (src) => src.replace('(name: string)', '(name: string, prefix: string)'),
       symbolGone: (src) => src.replace(
         `export function greet(name: string): string {
@@ -84,22 +93,49 @@ const FIXTURES: ParityFixture[] = [
     fixture: path.join(repoRoot, 'test/fixtures/sample-java'),
     sourceFile: 'src/Greeter.java',
     editedSymbol: 'greet',
-    chainCaller: 'casualGreet',
-    chainCallerFile: 'src/Greeter.java',
-    chainCallee: 'src/Helper.java#helperValue',
-    chainCalleeFile: 'src/Helper.java',
+    ripple: {
+      chainCaller: 'casualGreet',
+      chainCallerFile: 'src/Greeter.java',
+      chainCallee: 'src/Helper.java#helperValue',
+      chainCalleeFile: 'src/Helper.java',
+      calleeBodyOnly: (src) => src.replace('return 42;', 'return 43;'),
+    },
     publicKinds: { Greeter: 'class', greet: 'function' },
     filesScanned: 2,
     modulePublics: ['Greeter', 'greet'],
     internalCount: 3,
     edits: {
       bodyOnly: (src) => src.replace('return prefix + name;', 'return prefix + "dear " + name;'),
-      calleeBodyOnly: (src) => src.replace('return 42;', 'return 43;'),
       signature: (src) => src.replace('greet(String name)', 'greet(String name, String surname)'),
       symbolGone: (src) => src.replace(
         `  public String greet(String name) {
     return prefix + name;
   }
+
+`,
+        '',
+      ),
+    },
+  },
+  {
+    label: 'Python',
+    slug: 'python',
+    fixture: path.join(repoRoot, 'test/fixtures/sample-python'),
+    sourceFile: 'src/greet.py',
+    editedSymbol: 'greet',
+    ripple: false,
+    publicKinds: { MOTTO: 'variable', greet: 'function', Greeter: 'class' },
+    filesScanned: 2,
+    modulePublics: ['MOTTO', 'greet', 'Greeter'],
+    internalCount: 2,
+    edits: {
+      bodyOnly: (src) => src.replace('return MOTTO + name', 'return MOTTO + "dear " + name'),
+      signature: (src) => src.replace('def greet(name):', 'def greet(name, prefix):'),
+      symbolGone: (src) => src.replace(
+        `def greet(name):
+    """Return the greeting for name."""
+    return MOTTO + name
+
 
 `,
         '',
@@ -235,27 +271,30 @@ function paritySuite(fx: ParityFixture): void {
       expect(anchor.reason).toBe('symbol gone');
     });
 
-    it('a callee body edit ripples the anchored caller — same JSON shape and exit codes', () => {
-      const dir = copyFixture(fx.fixture, `code2doc-parity-${fx.slug}-`);
-      run(['init'], dir);
-      // the chain caller is internal: its fingerprint comes from the cache, not the init report
-      writePage(dir, 'chain.md', `# the chain\n\n- ${anchorFromCache(dir, fx.chainCallerFile, fx.chainCaller)} drives the flow\n`);
-      declarePages(dir, [{ path: 'chain.md', type: 'flow' }]);
-      expect(run(['status'], dir).code).toBe(0);
+    if (fx.ripple) {
+      const chain = fx.ripple;
+      it('a callee body edit ripples the anchored caller — same JSON shape and exit codes', () => {
+        const dir = copyFixture(fx.fixture, `code2doc-parity-${fx.slug}-`);
+        run(['init'], dir);
+        // the chain caller is internal: its fingerprint comes from the cache, not the init report
+        writePage(dir, 'chain.md', `# the chain\n\n- ${anchorFromCache(dir, chain.chainCallerFile, chain.chainCaller)} drives the flow\n`);
+        declarePages(dir, [{ path: 'chain.md', type: 'flow' }]);
+        expect(run(['status'], dir).code).toBe(0);
 
-      editSource(dir, fx.edits.calleeBodyOnly, fx.chainCalleeFile);
-      const { code, stdout } = run(['status', '--json'], dir);
-      expect(code).toBe(1);
+        editSource(dir, chain.calleeBodyOnly, chain.chainCalleeFile);
+        const { code, stdout } = run(['status', '--json'], dir);
+        expect(code).toBe(1);
 
-      const page = firstPage(stdout);
-      expect(page.state).toBe('ripple');
-      const anchor = page.anchors.find((a) => a.symbol === `${fx.chainCallerFile}#${fx.chainCaller}`)!;
-      expect(anchor.state).toBe('ripple');
-      expect(anchor.reason).toBe('callee went stale');
-      expect(anchor.ripples).toEqual([
-        { symbol: fx.chainCallee, state: 'drift', via: fx.chainCallee, depth: 1 },
-      ]);
-    });
+        const page = firstPage(stdout);
+        expect(page.state).toBe('ripple');
+        const anchor = page.anchors.find((a) => a.symbol === `${chain.chainCallerFile}#${chain.chainCaller}`)!;
+        expect(anchor.state).toBe('ripple');
+        expect(anchor.reason).toBe('callee went stale');
+        expect(anchor.ripples).toEqual([
+          { symbol: chain.chainCallee, state: 'drift', via: chain.chainCallee, depth: 1 },
+        ]);
+      });
+    }
 
     it('public exports without an anchor are reported missing, exit 2', () => {
       const dir = copyFixture(fx.fixture, `code2doc-parity-${fx.slug}-`);

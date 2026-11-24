@@ -28,7 +28,7 @@ declared page list — shape errors are tool failures, never signals.
 Language extraction hides behind one interface:
 [extractorForFile](../src/extractor/registry.ts "c2d:src/extractor/registry.ts#extractorForFile:205bcbf1cfc8f4e1.f9cda4200ff97c92") picks
 an extractor by extension, and the core never branches on language
-again. TS/JS and Java ship at parity — see the
+again. TS/JS, Java and Python ship their signals at parity — see the
 [extractor module](modules/extractor.md).
 
 ## Reading further
