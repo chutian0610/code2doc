@@ -1,0 +1,16 @@
+name: Language support request
+description: Ask for a new language extractor
+labels: [enhancement]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: e.g. Python, Go — plus the file extensions it should claim.
+    validations:
+      required: true
+  - type: textarea
+    id: repos
+    attributes:
+      label: A public repo it should handle
+      description: Links help evaluate scope — overloads, import styles, doc comments.

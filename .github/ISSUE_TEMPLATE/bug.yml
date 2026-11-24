@@ -1,0 +1,32 @@
+name: Bug report
+description: Something in code2doc misbehaves
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time — a minimal repro makes this fixable fast.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: The command you ran, the unexpected output, and what you expected instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: code2doc version
+      placeholder: e.g. 0.2.6
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Which agent drove the run?
+      options:
+        - Claude Code
+        - Cursor
+        - Codex
+        - Other / none
+    validations:
+      required: false
