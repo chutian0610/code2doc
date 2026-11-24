@@ -2,7 +2,7 @@
 
 Living documentation for codebases, kept by AI code agents.
 
-[![npm](https://img.shields.io/badge/npm-v0.2.6-ea7233)](https://www.npmjs.com/package/@chutian0610/code2doc)
+[![npm](https://img.shields.io/npm/v/@chutian0610/code2doc.svg)](https://www.npmjs.com/package/@chutian0610/code2doc)
 [![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://www.npmjs.com/package/@chutian0610/code2doc)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
