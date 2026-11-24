@@ -61,6 +61,10 @@ _Avoid_: indirect drift (dilutes Drift), cascade, secondhand
 A caller→callee relation between symbols, built by name heuristics (import resolution, same-file uniqueness, global-name uniqueness) — not a resolved reference. Deliberately incomplete by design.
 _Avoid_: reference, dependency (too generic)
 
+**Refresh**:
+The operator's maintenance action for reviewed staleness: re-signs an anchor's fingerprint after a Drift verdict was judged claim-still-holds. Refresh resolves Drift and never masks Broken — a signature-changed or vanished symbol can only be fixed by rewriting the claim.
+_Avoid_: sync, touch up, auto-fix
+
 **Blind spot**:
 A case the call-edge heuristics intentionally do not cover, where a real dependency yields no edge. Documented, not hidden: a missing edge is tolerated, a false edge never is.
 _Avoid_: limitation, bug

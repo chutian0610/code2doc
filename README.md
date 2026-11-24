@@ -80,7 +80,7 @@ stands and reports:
 | Signal   | Meaning                                                        | Action            |
 | -------- | -------------------------------------------------------------- | ----------------- |
 | Broken   | Anchored symbol gone, or its signature changed                 | Rewrite the claim |
-| Drift    | Symbol exists, signature same, body changed                    | Review; refresh the fingerprint if the claim still holds |
+| Drift    | Symbol exists, signature same, body changed                    | Review; `code2doc refresh` if the claim still holds |
 | Ripple   | The anchor is fresh but a symbol it calls went stale since the last `status` | Follow `via` to the change; most ripples need nothing |
 | Missing  | A module's public symbol with no anchor on its module page     | Document it       |
 

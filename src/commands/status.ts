@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { anchorVerdict, checkAnchor, parseAnchors, renameCandidates, worse } from '../anchors.js';
 import type { AnchorReason, AnchorState } from '../anchors.js';
-import { loadCache, saveCache, scan, allSymbols } from '../cache.js';
+import { allSymbols } from '../cache.js';
 import type { CacheData } from '../cache.js';
-import { CACHE_DIR, loadConfig } from '../config.js';
+import { CACHE_DIR } from '../config.js';
 import { checkDocLink, parseDocLinks } from '../links.js';
 import type { LinkReason, LinkState } from '../links.js';
 import { loadManifest, emptyManifest, validateManifest } from '../manifest.js';
@@ -13,6 +13,7 @@ import { dirOf, normalizeModuleDir } from '../paths.js';
 import { symbolId } from '../extractor/types.js';
 import { buildBaseline } from '../ripple.js';
 import type { Baseline, Ripple } from '../ripple.js';
+import { currentCache } from './common.js';
 
 /** A page's state is the worst state among its anchors ('fresh' == Accurate). */
 export type PageState = AnchorState;
@@ -278,15 +279,7 @@ function summaryLine(report: StatusReport): string {
 export async function runStatus(root: string, args: string[]): Promise<number> {
   const json = args.includes('--json');
   const gate = parseFailOn(args);
-  const config = loadConfig(root);
-  if (!config) {
-    throw new Error('not initialized: run `code2doc init` first');
-  }
-  // Always bring the cache to current state: anchors are compared against
-  // the code as it stands now, whether or not a cache file exists.
-  const previous = loadCache(root);
-  const cache = await scan(root, config, previous);
-  saveCache(root, cache);
+  const { config, previous, cache } = await currentCache(root);
 
   const baseline = buildBaseline(previous, cache);
 
