@@ -78,11 +78,49 @@ function worstState(states: PageState[]): PageState {
   return states.reduce(worse, 'fresh');
 }
 
-/** Exit tier from the summary: 0 clean, 1 review (drift/ripple), 2 any broken/missing. */
-function exitTier(summary: StatusReport['summary']): 0 | 1 | 2 {
-  if (summary.broken > 0 || summary.missing > 0) return 2;
-  if (summary.drift > 0 || summary.ripple > 0) return 1;
-  return 0;
+/**
+ * Gate class → exit tier: Broken/Missing tier at 2, Drift/Ripple at 1 —
+ * the historical ladder. One map is the single source for the class list,
+ * the valid-values text and the tier comparison.
+ */
+const GATE_TIERS = { broken: 2, drift: 1, ripple: 1, missing: 2 } as const;
+type GateClass = keyof typeof GATE_TIERS;
+const GATE_CLASSES = Object.keys(GATE_TIERS) as GateClass[];
+
+/**
+ * Parse `--fail-on <classes>` (comma-separated, space or `=` form; `all`
+ * expands). Absent flag → every class: the default gate is exactly the
+ * historical exit tier. A malformed flag is a tool failure, not a report
+ * state — a silently ignored contraction would gate nothing while
+ * claiming to.
+ */
+function parseFailOn(args: string[]): readonly GateClass[] {
+  const tokens = args.filter((a) => a === '--fail-on' || a.startsWith('--fail-on='));
+  if (tokens.length === 0) return GATE_CLASSES;
+  if (tokens.length > 1) throw new Error('--fail-on given more than once');
+  const raw = tokens[0].startsWith('--fail-on=')
+    ? tokens[0].slice('--fail-on='.length)
+    : args[args.indexOf(tokens[0]) + 1];
+  const classes = (raw ?? '').split(',').map((c) => c.trim()).filter((c) => c !== '');
+  if (classes.length === 0) {
+    throw new Error(`--fail-on needs classes: ${GATE_CLASSES.join(', ')} (or all)`);
+  }
+  if (classes.includes('all')) return GATE_CLASSES;
+  for (const c of classes) {
+    if (!(GATE_CLASSES as readonly string[]).includes(c)) {
+      throw new Error(`unknown --fail-on class "${c}" (valid: ${GATE_CLASSES.join(', ')}, all)`);
+    }
+  }
+  return classes as GateClass[];
+}
+
+/**
+ * Exit tier from the summary, gated by --fail-on: only the selected classes
+ * tier the run, at their GATE_TIERS ladder. The full gate (the default)
+ * reproduces the historical exit tier exactly.
+ */
+function exitTier(summary: StatusReport['summary'], gate: readonly GateClass[]): 0 | 1 | 2 {
+  return gate.reduce<number>((tier, c) => Math.max(tier, summary[c] > 0 ? GATE_TIERS[c] : 0), 0) as 0 | 1 | 2;
 }
 
 /**
@@ -239,6 +277,7 @@ function summaryLine(report: StatusReport): string {
 
 export async function runStatus(root: string, args: string[]): Promise<number> {
   const json = args.includes('--json');
+  const gate = parseFailOn(args);
   const config = loadConfig(root);
   if (!config) {
     throw new Error('not initialized: run `code2doc init` first');
@@ -277,5 +316,5 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
       console.log(line);
     }
   }
-  return exitTier(report.summary);
+  return exitTier(report.summary, gate);
 }

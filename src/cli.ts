@@ -14,7 +14,7 @@ async function main(argv: string[]): Promise<number> {
     case 'status':
       return runStatus(process.cwd(), rest);
     default:
-      console.error('usage: code2doc <init|status> [--json]');
+      console.error('usage: code2doc <init> | code2doc status [--json] [--fail-on <classes>]');
       return EXIT_FAILURE;
   }
 }
