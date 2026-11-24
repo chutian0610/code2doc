@@ -21,19 +21,23 @@ beforeAll(() => {
 }, 120_000);
 
 /**
- * Tarball shape: only the runtime artifact ships — dist plus package
- * metadata, never sources or tests. What `files` declares, verified.
+ * Tarball shape: the runtime artifact plus the Operator skill — dist,
+ * the skills/ tree and package metadata, never sources or tests. What
+ * `files` declares, verified.
  */
 describe('code2doc tarball contents', () => {
-  it('ships dist and package metadata only', () => {
+  it('ships dist, the skill and package metadata only', () => {
     const entries = execFileSync('tar', ['-tzf', tgz], { encoding: 'utf8' })
       .split('\n')
       .filter(Boolean);
     expect(entries).toContain('package/dist/cli.js');
     expect(entries).toContain('package/LICENSE');
+    expect(entries).toContain('package/skills/code2doc-operator/SKILL.md');
     const shipped = entries.filter((e) => e.startsWith('package/'));
     expect(
-      shipped.every((e) => /^package\/(dist\/|LICENSE$|README\.md$|package\.json$)/.test(e)),
+      shipped.every((e) =>
+        /^package\/(dist\/|skills\/|LICENSE$|README\.md$|package\.json$)/.test(e),
+      ),
     ).toBe(true);
   });
 });

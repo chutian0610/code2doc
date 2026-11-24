@@ -73,9 +73,19 @@ where to anchor) is the agent's; **verification** (does the claim
 still match the code) is a hash comparison no model can talk its way
 past. Wiring it up:
 
-1. Copy [SKILL.md](SKILL.md) into the repo, or reference it from your
-   agent's instructions (AGENTS.md, CLAUDE.md, a skills folder). It
-   teaches the whole Operator workflow.
+1. Install the Operator skill into your agent — one line:
+
+   ```
+   npx skills add chutian0610/code2doc
+   ```
+
+   That is the [skills.sh](https://skills.sh) installer for the open
+   agent-skills ecosystem: it detects your coding agent (Claude Code,
+   Cursor, Codex, …) and copies the skill where that agent reads it.
+   No installer handy? Copy
+   [SKILL.md](skills/code2doc-operator/SKILL.md) into your agent's
+   skills folder, or reference it from AGENTS.md/CLAUDE.md — it teaches
+   the whole Operator workflow.
 2. First tree, one sentence to the agent: *"Follow SKILL.md: document
    this repo, smallest module first."* It plans the manifest, writes
    anchored pages and iterates `status` to green.
