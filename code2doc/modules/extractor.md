@@ -92,4 +92,18 @@ name. Its `resolveImport` matches a package path against indexed files
 by unique suffix — whatever the package root — so external libraries
 resolve nothing.
 
+## `python.ts` — the third language
+
+[createPythonExtractor](../../src/extractor/python.ts "c2d:src/extractor/python.ts#createPythonExtractor:d00c18b05bf88627.0458c0be0a08b22a")
+mirrors the contract on tree-sitter-python: module-level `def`/`class`
+targets plus UPPER_CASE assignments (the constants convention, kind:
+variable) are the symbols — methods, nested defs, `if`-guarded blocks
+and dunders never surface. Visibility follows the underscore convention
+(leading underscore internal); `__all__`-driven visibility is a
+documented blind spot. Decorators sit inside the signature span —
+adding or removing one is an interface change — and only `#` line
+comments are comments: a docstring is body, so editing one drifts a
+claim instead of breaking it. A same-name redefinition is one record
+per declaration, set-compared downstream under its name key (ADR-0006).
+
 Back to the [overview](../overview.md).
