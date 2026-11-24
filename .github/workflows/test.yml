@@ -1,0 +1,21 @@
+# Continuous CI: typecheck + test on every push to main and every PR.
+# (Release-time testing also happens in publish.yml before publishing.)
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test

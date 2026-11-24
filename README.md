@@ -2,6 +2,7 @@
 
 Living documentation for codebases, kept by AI code agents.
 
+[![test](https://img.shields.io/github/actions/workflow/status/chutian0610/code2doc/test.yml?branch=main&label=test)](https://github.com/chutian0610/code2doc/actions/workflows/test.yml)
 [![npm](https://img.shields.io/npm/v/@chutian0610/code2doc.svg)](https://www.npmjs.com/package/@chutian0610/code2doc)
 [![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://www.npmjs.com/package/@chutian0610/code2doc)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
