@@ -26,3 +26,27 @@ export async function currentCache(root: string): Promise<CurrentCache> {
   saveCache(root, cache);
   return { config, previous, cache };
 }
+
+/**
+ * Flags must be known: a typo'd flag silently changes what the command
+ * checks or writes — the one failure mode this tool never tolerates.
+ * Flags in `withValues` consume the next argument as their value; anything
+ * else positional or unknown is a tool failure. Callers parse their own
+ * flags first, so a malformed value fails with its own, sharper message.
+ */
+export function requireKnownFlags(args: string[], withValues: string[] = [], allowed: string[] = []): void {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (withValues.includes(arg)) {
+      i++; // the value is positional, even when it looks like a flag
+      continue;
+    }
+    if (!arg.startsWith('--')) {
+      throw new Error(`unexpected argument "${arg}"`);
+    }
+    const name = `--${arg.slice(2).split('=')[0]}`;
+    if (!allowed.includes(name) && !withValues.includes(name)) {
+      throw new Error(`unknown flag "${arg}"`);
+    }
+  }
+}

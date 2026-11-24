@@ -140,4 +140,25 @@ describe('code2doc CLI', () => {
     expect(stdout).toBe('');
     expect(stderr).toMatch(/JSON at position/); // the cause, on stderr, never in a report
   });
+
+  it('status rejects unknown flags and stray arguments loudly (exit 3)', () => {
+    const dir = copyFixture(tsFixture, 'code2doc-');
+    run(['init'], dir);
+
+    // a typo'd flag would silently change what gets checked — never that
+    const typo = run(['status', '--jsn'], dir);
+    expect(typo.code).toBe(3);
+    expect(typo.stderr).toMatch(/unknown flag "--jsn"/);
+
+    const stray = run(['status', 'drift'], dir);
+    expect(stray.code).toBe(3);
+    expect(stray.stderr).toMatch(/unexpected argument "drift"/);
+  });
+
+  it('init takes no flags', () => {
+    const dir = copyFixture(tsFixture, 'code2doc-');
+    const { code, stderr } = run(['init', '--json'], dir);
+    expect(code).toBe(3);
+    expect(stderr).toMatch(/init takes no flags/);
+  });
 });

@@ -11,6 +11,9 @@ async function main(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv;
   switch (cmd) {
     case 'init':
+      if (rest.length > 0) {
+        throw new Error(`unexpected argument "${rest[0]}" — init takes no flags`);
+      }
       return runInit(process.cwd());
     case 'status':
       return runStatus(process.cwd(), rest);

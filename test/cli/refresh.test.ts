@@ -172,4 +172,14 @@ describe('code2doc refresh', () => {
     const { code } = run(['refresh', '--json'], dir);
     expect(code).toBe(3);
   });
+
+  it('rejects unknown flags — including the deliberately-absent --dry-run', () => {
+    const dir = copyFixture(tsFixture, 'code2doc-refresh-');
+    setupWithAnchor(dir);
+    // status is already the preview of what refresh would touch; a typo'd
+    // flag must fail loudly, never silently mean "human output"
+    const { code, stderr } = run(['refresh', '--dry-run'], dir);
+    expect(code).toBe(3);
+    expect(stderr).toMatch(/unknown flag "--dry-run"/);
+  });
 });

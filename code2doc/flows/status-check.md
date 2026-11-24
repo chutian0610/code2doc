@@ -4,7 +4,7 @@ What happens between `code2doc status` and the exit code — one pass,
 anchored along the path it walks. (The same pipeline runs with `--json`;
 only the printing differs.)
 
-1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.46c435f74d8cd7ed")
+1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.6ffffe2121e242e0")
    starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 

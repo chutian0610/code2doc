@@ -13,7 +13,7 @@ import { dirOf, normalizeModuleDir } from '../paths.js';
 import { symbolId } from '../extractor/types.js';
 import { buildBaseline } from '../ripple.js';
 import type { Baseline, Ripple } from '../ripple.js';
-import { currentCache } from './common.js';
+import { currentCache, requireKnownFlags } from './common.js';
 
 /** A page's state is the worst state among its anchors ('fresh' == Accurate). */
 export type PageState = AnchorState;
@@ -277,8 +277,9 @@ function summaryLine(report: StatusReport): string {
 }
 
 export async function runStatus(root: string, args: string[]): Promise<number> {
-  const json = args.includes('--json');
   const gate = parseFailOn(args);
+  requireKnownFlags(args, ['--fail-on'], ['--json']);
+  const json = args.includes('--json');
   const { config, previous, cache } = await currentCache(root);
 
   const baseline = buildBaseline(previous, cache);

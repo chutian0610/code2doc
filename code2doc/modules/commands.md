@@ -2,12 +2,15 @@
 
 The Operator entrypoints behind `src/cli.ts`. Each is one `run`
 function plus the JSON types it prints — the stdout contracts are the
-tool's public interface. Their shared preamble,
-[currentCache](../../src/commands/common.ts "c2d:src/commands/common.ts#currentCache:8592307ecdaad9eb.6823ca7f28fa1a45"),
+tool's public interface. Their shared preamble lives in `common.ts`:
+[currentCache](../../src/commands/common.ts "c2d:src/commands/common.ts#currentCache:8592307ecdaad9eb.6823ca7f28fa1a45")
 brings the cache to current state — a missing config is a tool failure,
 never a signal — and hands the command its config plus
 [CurrentCache](../../src/commands/common.ts "c2d:src/commands/common.ts#CurrentCache:1a3c768b3f1a2037.1a3c768b3f1a2037"):
 the previous cache for baselines and the fresh one for every comparison.
+[requireKnownFlags](../../src/commands/common.ts "c2d:src/commands/common.ts#requireKnownFlags:2b1e9560da637e34.38263f8b17ea9305")
+rejects a typo'd flag or stray argument with exit 3: a silently ignored
+flag would change what the command checks or writes without saying so.
 Every public export of `src/commands/` is anchored here (the
 **Missing** guarantee for this module).
 
@@ -25,7 +28,7 @@ with its fingerprint**, ready to be pasted into anchors.
 
 ## `status.ts` — the verification pass
 
-[runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.46c435f74d8cd7ed") brings the cache to
+[runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.6ffffe2121e242e0") brings the cache to
 current state, validates the manifest and reports every declared page:
 anchors verified (fresh ones additionally checked for **Ripple**), doc
 links existence-checked, module pages audited for uncovered public
@@ -47,7 +50,7 @@ the machinery it calls lives in the [core module](core.md).
 
 ## `refresh.ts` — the reviewed re-sign
 
-[runRefresh](../../src/commands/refresh.ts "c2d:src/commands/refresh.ts#runRefresh:6d00252be1ee403d.01810c33ae0f07b5") is the
+[runRefresh](../../src/commands/refresh.ts "c2d:src/commands/refresh.ts#runRefresh:6d00252be1ee403d.1ae027fb15e15220") is the
 maintenance half of the loop: it brings the cache to current state,
 then re-signs every manifest-declared anchor whose symbol kept its
 signature but whose body moved — the recorded verdict that a reviewed
