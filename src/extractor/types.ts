@@ -149,6 +149,39 @@ export function refCollector(): {
   };
 }
 
+/**
+ * The claims accumulator every extractor feeds: import bindings plus
+ * the namespace probe member calls resolve through (#26) — one home
+ * for the Map-in/prototype-less and never-overwrite policies so
+ * adapters cannot drift apart on them. A member-call claim never
+ * overwrites an explicit from-import of the same name: the overwrite
+ * would point the bare call at the wrong module's symbol, which is
+ * exactly the false edge ADR-0004 forbids — the member call yields
+ * instead (a missing edge, never a false one).
+ */
+export function claimCollector(): {
+  imports: FileRefs['imports'];
+  /** Namespace bindings: dotted local name → the module's source. */
+  namespaces: Map<string, string>;
+  /** Claim `prop` to the module `base` names; undefined when base names no binding or `prop` is already claimed. */
+  claimViaNamespace(base: string | undefined, prop: string): string | undefined;
+} {
+  // prototype-less from the start: local names are arbitrary
+  // identifiers, and `toString`/`__proto__` must be plain keys (#21)
+  const imports: FileRefs['imports'] = Object.create(null);
+  const namespaces = new Map<string, string>();
+  return {
+    imports,
+    namespaces,
+    claimViaNamespace(base, prop) {
+      const source = base === undefined ? undefined : namespaces.get(base);
+      if (!source || prop in imports) return undefined;
+      imports[prop] = { kind: 'named', imported: prop, source };
+      return source;
+    },
+  };
+}
+
 export interface Extractor {
   languageId: string;
   /** File extensions this extractor claims (with dot, lowercase). */

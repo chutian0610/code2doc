@@ -20,9 +20,11 @@ export interface CacheData {
    * requires, #25; v7 stops guessing member-call names, claiming
    * namespace-import member calls instead, #26; v8 hashes string
    * slices, not byte windows — byte offsets from web-tree-sitter are
-   * string units and diverge on any multibyte character).
+   * string units and diverge on any multibyte character; v9 adds
+   * Python call refs (#35) — earlier caches hold empty refs for .py
+   * files and would silently keep them on unchanged hashes).
    */
-  version: 8;
+  version: 9;
   files: Record<string, { hash: string; symbols: SymbolRecord[]; refs: FileRefs }>;
 }
 
@@ -46,7 +48,7 @@ export async function scan(
     ignore: config.exclude,
     dot: false,
   });
-  const cache: CacheData = { version: 8, files: {} };
+  const cache: CacheData = { version: 9, files: {} };
   for (const raw of files.sort()) {
     const rel = toPosix(raw);
     const extractor = extractorForFile(rel);
@@ -76,7 +78,7 @@ export function loadCache(root: string): CacheData | undefined {
   const file = path.join(root, CACHE_FILE);
   if (!existsSync(file)) return undefined;
   const parsed = JSON.parse(readFileSync(file, 'utf8')) as CacheData;
-  if (parsed.version !== 8) return undefined; // foreign algorithm: rebuild
+  if (parsed.version !== 9) return undefined; // foreign algorithm: rebuild
   return parsed;
 }
 

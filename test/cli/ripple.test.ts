@@ -211,7 +211,7 @@ describe('code2doc ripple (V2-1)', () => {
     expect(report.summary).toEqual({ broken: 0, drift: 1, ripple: 0, missing: 0 });
 
     const rebuilt = JSON.parse(readFileSync(cacheFile, 'utf8'));
-    expect(rebuilt.version).toBe(8);
+    expect(rebuilt.version).toBe(9);
   });
 });
 

@@ -5,7 +5,7 @@ import type { Tree } from 'web-tree-sitter';
 import { collectComments, fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
 import type { Extractor, FileRefs, Span, SymbolKind, SymbolRecord } from './types.js';
-import { noRefs, refCollector, symbolId } from './types.js';
+import { claimCollector, noRefs, refCollector, symbolId } from './types.js';
 
 /**
  * TS/JS extractor built on web-tree-sitter (WASM) with the official
@@ -221,32 +221,14 @@ async function parseTree(code: string, file: string) {
 }
 
 /**
- * The claims pass' output: the currency the core consumes, plus the
- * namespace probe the calls pass needs. Claiming a name — ESM import,
- * CommonJS require, or a namespace member call — is this language's way
- * of telling the cascade "this name is spoken for here" (ADR-0004/0005).
- */
-interface Claims {
-  imports: FileRefs['imports'];
-  /**
-   * Claim `prop` to the module `base` names when base is a namespace
-   * import, answering that module's source; undefined when the receiver
-   * names anything else — then the member call yields nothing (#26).
-   */
-  claimViaNamespace(base: string | undefined, prop: string): string | undefined;
-}
-
-/**
  * The claims pass: ESM import bindings and CommonJS requires are both
  * claim factories — the bound name never falls through to same-file or
  * global guesses (#25), relative sources resolve through the same
  * resolveImport machinery as ESM, bare ones stay claimed.
  */
-function readImportClaims(language: Language, tree: Tree): Claims {
-  // prototype-less from the start: local names are arbitrary
-  // identifiers, and `toString`/`__proto__` must be plain keys (#21)
-  const imports: FileRefs['imports'] = Object.create(null);
-  const namespaces = new Map<string, string>(); // namespace local name → its source
+function readImportClaims(language: Language, tree: Tree) {
+  const claims = claimCollector();
+  const { imports, namespaces } = claims;
   for (const { captures } of new Query(language, IMPORT_QUERY).matches(tree.rootNode)) {
     const spec = captures.find((c) => c.name === 'spec')?.node;
     const local = captures.find((c) => c.name === 'local')?.node;
@@ -292,15 +274,7 @@ function readImportClaims(language: Language, tree: Tree): Claims {
     }
   }
 
-  return {
-    imports,
-    claimViaNamespace(base, prop) {
-      const source = base === undefined ? undefined : namespaces.get(base);
-      if (!source) return undefined;
-      imports[prop] = { kind: 'named', imported: prop, source };
-      return source;
-    },
-  };
+  return claims;
 }
 
 /**
@@ -312,7 +286,7 @@ function readImportClaims(language: Language, tree: Tree): Claims {
  * global-uniqueness step resolved was a false edge. Bare calls, `new`
  * and heritage go straight to the shared accumulator.
  */
-function readCalls(language: Language, tree: Tree, claims: Claims): FileRefs['callers'] {
+function readCalls(language: Language, tree: Tree, claims: ReturnType<typeof claimCollector>): FileRefs['callers'] {
   const refs = refCollector();
   for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
     const member = captures.find((c) => c.name === 'member')?.node;
