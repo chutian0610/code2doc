@@ -157,6 +157,11 @@ The machine interface is `status --json` plus the exit codes; the
 `→ maybe` rename hints and `via`/`depth` drill-downs let the agent act
 on a signal without re-reading the whole repo.
 
+See it end to end: [a Guice walkthrough](examples/guice-story.md) for
+the human side of the loop, [an operator
+transcript](skills/code2doc-operator/transcript.md) for the exact
+actions the agent takes.
+
 ## In this repo
 
 code2doc documents itself — see [code2doc/overview.md](code2doc/overview.md);
