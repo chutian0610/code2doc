@@ -37,7 +37,7 @@ function cache(files: Record<string, { symbols?: SymbolRecord[]; refs?: FileRefs
   for (const [file, entry] of Object.entries(files)) {
     out[file] = { hash: 'h', symbols: entry.symbols ?? [], refs: entry.refs ?? noRefs() };
   }
-  return { version: 9, files: out };
+  return { version: 10, files: out };
 }
 
 /** Edge view keyed `caller → callees`, skipping empty callers. */

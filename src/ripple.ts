@@ -90,7 +90,12 @@ export function resolveEdges(cache: CacheData): EdgeMap {
     for (const [caller, callees] of Object.entries(entry.refs.callers)) {
       const resolved = new Set<string>();
       for (const name of callees) {
-        const binding = entry.refs.imports[name];
+        // own-property lookup: the cache reads back as a plain object,
+        // and `imports['toString']` would otherwise reach the prototype
+        // and hand a function to the language's resolveImport (#21,
+        // surfaced by the #41 rewrite)
+        const table = entry.refs.imports;
+        const binding = Object.hasOwn(table, name) ? table[name] : undefined;
         if (binding) {
           const target = resolveImport?.(file, binding, index);
           if (target) resolved.add(target);
