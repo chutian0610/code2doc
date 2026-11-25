@@ -4,7 +4,7 @@ What happens between `code2doc status` and the exit code — one pass,
 anchored along the path it walks. (The same pipeline runs with `--json`;
 only the printing differs.)
 
-1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.6ffffe2121e242e0")
+1. **Load config.** [runStatus](../../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.8241da30d99edad6")
    starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 
@@ -46,9 +46,13 @@ only the printing differs.)
 
 5. **Report and gate.** The table shows every page's state; details
    drill into each stale anchor (rippled ones naming the callee), broken
-   link and missing symbol with reasons. Exit code: **0** all accurate,
-   **1** Drift or Ripple, **2** any Broken or Missing — automation gates
-   on severity, humans read the table.
+   link and missing symbol with reasons.
+   [staleBuildNote](../../src/commands/common.ts "c2d:src/commands/common.ts#staleBuildNote:7bd4d8226fed3487.280b4c1e20fbcb38") rides outside
+   the gate: a build older than its own sources adds `→ dist is older
+   than src` to the report — a report from an extractor that is not the
+   code it reads like is advice to rebuild first, never a state. Exit
+   code: **0** all accurate, **1** Drift or Ripple, **2** any Broken or
+   Missing — automation gates on severity, humans read the table.
 
 The inputs to this flow come from [init](../modules/commands.md); the
 machinery is the [core module](../modules/core.md).

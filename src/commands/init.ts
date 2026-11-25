@@ -4,6 +4,7 @@ import { CACHE_DIR, CONFIG_FILE, defaultConfig, loadConfig, saveConfig } from '.
 import { allSymbols, saveCache, scan } from '../cache.js';
 import { emptyManifest, loadManifest, manifestPath, saveManifest } from '../manifest.js';
 import { dirOf } from '../paths.js';
+import { requireFreshBuild } from './common.js';
 import type { SymbolRecord } from '../extractor/types.js';
 
 export interface ModuleReport {
@@ -88,6 +89,7 @@ function moduleReports(symbols: SymbolRecord[], files: string[]): ModuleReport[]
 }
 
 export async function runInit(root: string): Promise<number> {
+  requireFreshBuild();
   const existing = loadConfig(root);
   const config = existing ?? defaultConfig();
   if (!existing) saveConfig(root, config);

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { parseAnchorTitle, parseMarkdownLinks } from '../anchors.js';
 import { emptyManifest, loadManifest, validateManifest } from '../manifest.js';
 import type { PageEntry } from '../manifest.js';
-import { currentCache, requireKnownFlags } from './common.js';
+import { currentCache, requireFreshBuild, requireKnownFlags } from './common.js';
 
 export interface RefreshEntry {
   /** Path relative to docRoot, as declared in the manifest. */
@@ -44,6 +44,7 @@ function where(entry: RefreshEntry | UnresolvedEntry): string {
  */
 export async function runRefresh(root: string, args: string[]): Promise<number> {
   requireKnownFlags(args, [], ['--json']);
+  requireFreshBuild();
   const json = args.includes('--json');
   const { config, cache } = await currentCache(root);
 

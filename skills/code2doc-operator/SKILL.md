@@ -96,7 +96,10 @@ code2doc status --json   # machine-readable, your entry point
 ```
 
 Exit codes: `0` all accurate, `1` Drift or Ripple, `2` any Broken or Missing.
-Iterate until `status` exits 0 with zero signals, then commit docs,
+One advisory rides outside the gate: `→ dist is older than src` (the
+report's top-level `note` in `--json`) means the running build predates
+its own sources — rebuild (`npm run build`) and re-run before trusting
+the report. Iterate until `status` exits 0 with zero signals, then commit docs,
 manifest and config alongside the code (the `.code2doc/` cache is
 derived state, ignored and rebuildable).
 
@@ -118,8 +121,10 @@ and clear the signals before you finish."* In CI, one step —
 - **Drift** — the symbol's body changed. Check whether the claim still
   holds: if yes, refresh the fingerprint (`code2doc refresh` re-signs
   every reviewed-drift anchor in one pass and refuses signature changes
-  and vanished symbols — those are rewrites, never refreshes); if no,
-  rewrite first.
+  and vanished symbols — those are rewrites, never refreshes; it also
+  refuses to run from a build older than its own sources, and so does
+  `init`, because fingerprints signed by an older build are wrong
+  data); if no, rewrite first.
 - **Ripple** — the anchored symbol itself is untouched, but something
   it calls went stale since the last status. Review recommended, not a
   rewrite: follow `via` to the stale callee named in the drill-down,

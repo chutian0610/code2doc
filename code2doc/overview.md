@@ -10,10 +10,10 @@ When the code moves, the anchors say so.
 
 Two commands, dispatched by `src/cli.ts`:
 
-- [runInit](../src/commands/init.ts "c2d:src/commands/init.ts#runInit:b9a5aa6abd9d8b1c.b6702a806487a9e3") sets a repo up: config, an
+- [runInit](../src/commands/init.ts "c2d:src/commands/init.ts#runInit:b9a5aa6abd9d8b1c.3ba0878b736eb6b3") sets a repo up: config, an
   empty manifest, a doc-tree skeleton and a symbol index whose public
   symbols carry the fingerprints the Operator will anchor with.
-- [runStatus](../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.6ffffe2121e242e0") is the product: it
+- [runStatus](../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.8241da30d99edad6") is the product: it
   re-indexes the code, checks every declared page and reports
   **Broken**, **Drift**, **Ripple** and **Missing** with exit codes
   0/1/2.

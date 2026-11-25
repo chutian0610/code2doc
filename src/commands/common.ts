@@ -1,3 +1,6 @@
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadCache, saveCache, scan } from '../cache.js';
 import type { CacheData } from '../cache.js';
 import { loadConfig } from '../config.js';
@@ -48,5 +51,56 @@ export function requireKnownFlags(args: string[], withValues: string[] = [], all
     if (!allowed.includes(name) && !withValues.includes(name)) {
       throw new Error(`unknown flag "${arg}"`);
     }
+  }
+}
+
+/** Newest mtime under `dir` (recursive) among files ending in `ext`; 0 when there are none. */
+function newestMtime(dir: string, ext: string): number {
+  if (!existsSync(dir)) return 0;
+  let newest = 0;
+  for (const rel of readdirSync(dir, { recursive: true, encoding: 'utf8' })) {
+    if (!rel.endsWith(ext)) continue;
+    const mtime = statSync(path.join(dir, rel)).mtimeMs;
+    if (mtime > newest) newest = mtime;
+  }
+  return newest;
+}
+
+/** Package root of the running binary, derived from this module's compiled home (dist/commands/). */
+function selfPkgRoot(): string {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+}
+
+/** True when some source compiled into dist has been touched since the last build. */
+function buildOlderThanSources(pkgRoot: string): boolean {
+  const src = newestMtime(path.join(pkgRoot, 'src'), '.ts');
+  if (src === 0) return false; // not a dev checkout: the published package ships dist alone
+  const dist = newestMtime(path.join(pkgRoot, 'dist'), '.js');
+  return dist > 0 && src > dist;
+}
+
+/**
+ * Advisory when the running build predates its own sources — the extractor
+ * behind this report is not the code it reads like. Dev checkouts only; the
+ * check cannot apply (and returns undefined) wherever src/ or dist/ is
+ * missing. "Stale" is taken: in this tool's vocabulary it names a doc whose
+ * anchor no longer matches the code, never a build.
+ */
+export function staleBuildNote(pkgRoot: string = selfPkgRoot()): string | undefined {
+  return buildOlderThanSources(pkgRoot)
+    ? 'dist is older than src — rebuild (npm run build) before trusting this report'
+    : undefined;
+}
+
+/**
+ * The write commands' hard version of the same check: init and refresh sign
+ * fingerprints into the doc tree, and fingerprints signed by an older build
+ * are wrong data, not weak advice — refuse rather than write.
+ */
+export function requireFreshBuild(): void {
+  if (buildOlderThanSources(selfPkgRoot())) {
+    throw new Error(
+      'dist is older than src — rebuild (npm run build) first: init and refresh sign fingerprints into the doc tree, and an older build signs the wrong ones',
+    );
   }
 }

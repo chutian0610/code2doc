@@ -13,7 +13,7 @@ import { dirOf, normalizeModuleDir } from '../paths.js';
 import { symbolId } from '../extractor/types.js';
 import { buildBaseline } from '../ripple.js';
 import type { Baseline, Ripple } from '../ripple.js';
-import { currentCache, requireKnownFlags } from './common.js';
+import { currentCache, requireKnownFlags, staleBuildNote } from './common.js';
 
 /** A page's state is the worst state among its anchors ('fresh' == Accurate). */
 export type PageState = AnchorState;
@@ -72,6 +72,13 @@ export interface StatusReport {
   pages: PageReport[];
   /** broken/drift/ripple count pages (worst state); missing counts symbols. */
   summary: { broken: number; drift: number; ripple: number; missing: number };
+  /**
+   * Advisory when the running build predates its own sources — the report
+   * may not describe the code it reads like. Pure advice, never a state or
+   * an exit code; absent whenever the build is current or the check cannot
+   * apply (the published package ships without src/).
+   */
+  note?: string;
 }
 
 /** Worst state wins; the ladder itself is `worse`, defined once in anchors.ts. */
@@ -296,6 +303,7 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
       ripple: pages.filter((p) => p.state === 'ripple').length,
       missing: pages.reduce((count, page) => count + page.missing.length, 0),
     },
+    note: staleBuildNote(),
   };
 
   if (json) {
@@ -306,6 +314,7 @@ export async function runStatus(root: string, args: string[]): Promise<number> {
       ...detailLines(report, config.docRoot),
       '',
       summaryLine(report),
+      ...(report.note ? [`→ ${report.note}`] : []),
     ]) {
       console.log(line);
     }
