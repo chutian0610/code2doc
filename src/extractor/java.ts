@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Language, Parser, Query, Node as SyntaxNode } from 'web-tree-sitter';
+import type { Tree } from 'web-tree-sitter';
 import { collectComments, fingerprintOf, spanOf } from './fingerprint.js';
 import type { CommentRange } from './fingerprint.js';
 import type { Extractor, FileRefs, ImportBinding, Span, SymbolKind, SymbolRecord } from './types.js';
@@ -54,10 +55,11 @@ const QUERY = `
  * (bare, `this.x()`, chained and static-import calls all expose the
  * final method name there), construction, `extends`/`implements`.
  * Method references (`this::x`) and field accesses are no invocations
- * and match nothing.
+ * and match nothing. The invocation capture lets the calls pass read
+ * the receiver and apply the type rule (#41).
  */
 const REF_QUERY = `
-  (method_invocation name: (identifier) @callee)
+  (method_invocation name: (identifier) @callee) @invocation
   (object_creation_expression type: (type_identifier) @callee)
   (object_creation_expression type: (scoped_type_identifier) @scoped)
   (class_declaration superclass: (superclass (type_identifier) @callee))
@@ -66,11 +68,26 @@ const REF_QUERY = `
   (class_declaration interfaces: (super_interfaces (type_list (scoped_type_identifier) @scoped)))
 `;
 
+/**
+ * Receiver-type declarations (#41): a local name whose declared type
+ * says whether a member call on it can resolve to a repo symbol at all.
+ * Generic types count by their root name (`List<String>` → `List`);
+ * `var`, arrays and other shapes yield no root and claim nothing.
+ */
+const TYPE_QUERY = `
+  (field_declaration type: (_) @type (variable_declarator name: (identifier) @name))
+  (formal_parameter type: (_) @type name: (identifier) @name)
+  (local_variable_declaration type: (_) @type (variable_declarator name: (identifier) @name))
+`;
+
 /** Comment node shapes of the Java grammar. */
 const COMMENT_QUERY = `[(line_comment) (block_comment)] @comment`;
 
 /** Whole import declarations — the FQCN shape is decoded here, not in a query. */
 const IMPORT_QUERY = `(import_declaration) @import`;
+
+/** The file's package declaration — same-package claims resolve through it (#41). */
+const PACKAGE_QUERY = `(package_declaration) @package`;
 
 /** Body wrappers a method may sit under on its way to the type declaration. */
 const TYPE_BODIES = new Set(['class_body', 'interface_body', 'enum_body', 'enum_body_declarations']);
@@ -161,6 +178,74 @@ function finalTypeSegment(scoped: SyntaxNode): string | undefined {
   return scoped.namedChildren.filter((c) => c.type === 'type_identifier').at(-1)?.text;
 }
 
+/** The root name of a declared type: `List<String>` → `List`, `demo.other.Base` → `Base`. */
+function rootTypeName(type: SyntaxNode): string | undefined {
+  if (type.type === 'type_identifier') return type.text;
+  if (type.type === 'generic_type') {
+    return type.namedChildren.find((c) => c.type === 'type_identifier')?.text;
+  }
+  if (type.type === 'scoped_type_identifier') return finalTypeSegment(type);
+  return undefined; // var, arrays, wildcards — no root, claims nothing
+}
+
+/**
+ * Local name → declared root type, from same-file fields, parameters
+ * and local variables (#41). The map a member call's receiver consults:
+ * if the declared type names no repo symbol, the call resolves to some
+ * runtime object's method that is not ours to claim.
+ */
+function collectTypeDecls(language: Language, tree: Tree): Map<string, string> {
+  const decls = new Map<string, string>();
+  for (const { captures } of new Query(language, TYPE_QUERY).matches(tree.rootNode)) {
+    const type = captures.find((c) => c.name === 'type')?.node;
+    const name = captures.find((c) => c.name === 'name')?.node;
+    const root = type && rootTypeName(type);
+    if (root && name) decls.set(name.text, root);
+  }
+  return decls;
+}
+
+/** Names of the file's top-level types — a receiver of one of these is same-file surface. */
+function collectTopLevelTypeNames(language: Language, tree: Tree): Set<string> {
+  const names = new Set<string>();
+  for (const { captures } of new Query(language, QUERY).matches(tree.rootNode)) {
+    const decl = captures.find((c) => c.name === 'decl')?.node;
+    if (decl && isTopLevelType(decl)) {
+      const name = decl.childForFieldName('name')?.text;
+      if (name) names.add(name);
+    }
+  }
+  return names;
+}
+
+/** The file's package as a path (`com.google.gson` → `com/google/gson`), or undefined for the default package. */
+function readPackagePath(language: Language, tree: Tree): string | undefined {
+  for (const { captures } of new Query(language, PACKAGE_QUERY).matches(tree.rootNode)) {
+    const decl = captures.find((c) => c.name === 'package')?.node;
+    if (decl) return decl.text.replace(/^package\s+/, '').replace(/;/g, '').trim().replace(/\./g, '/') || undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Type names declared inside other types — inner, nested, local. A
+ * member call on such a receiver resolves to the inner class's own
+ * method, and inner-class methods are not symbols: claiming the name
+ * would land on whichever top-level method happens to share it (#41
+ * shape B, measured on gson's `Impl.createAdapter`).
+ */
+function collectInnerClassTypeNames(language: Language, tree: Tree): Set<string> {
+  const names = new Set<string>();
+  for (const { captures } of new Query(language, QUERY).matches(tree.rootNode)) {
+    const decl = captures.find((c) => c.name === 'decl')?.node;
+    if (decl && decl.type !== 'method_declaration' && !isTopLevelType(decl)) {
+      const name = decl.childForFieldName('name')?.text;
+      if (name) names.add(name);
+    }
+  }
+  return names;
+}
+
 /**
  * One import declaration → a normalized binding for the cascade. The
  * FQCN becomes a package-path suffix (`demo.other.Base` →
@@ -176,6 +261,113 @@ function importBinding(decl: SyntaxNode): void | [string, ImportBinding] {
   const path = (isStatic ? segments.slice(0, -1) : segments).join('/');
   const name = segments.at(-1)!;
   return [name, { kind: 'named', imported: name, source: `${path}.java` }];
+}
+
+/**
+ * The calls pass. Bare calls, `new` and heritage go straight to the
+ * shared accumulator. A member call reports only when its receiver's
+ * type names a repo symbol (#41, the Java counterpart of #26) — a
+ * method invocation on a JDK or library object shares its name with
+ * any repo method that happens to be globally unique, and field-testing
+ * measured those as the dominant false-edge shape:
+ *
+ * - `this` and a receiver declared with a same-file top-level type:
+ *   claimed bare — same-file uniqueness resolves it;
+ * - a receiver whose declared type (or an explicit class name) carries
+ *   an import binding: claimed against that binding's FQCN source, so
+ *   `resolveImport` settles repo-vs-external (`demo.other.Base` matches,
+ *   `java.util.List` does not);
+ * - an explicit class name with no import (same-package statics):
+ *   claimed against the `./Name` form, which `resolveImport` settles by
+ *   exact directory — `./ProxyFactory` hits, `./Arrays` never;
+ * - everything else (chained calls, undeclared receivers, inner-class
+ *   types, `var`) reports nothing — the missing-edge direction.
+ */
+function readCalls(
+  language: Language,
+  tree: Tree,
+  imports: FileRefs['imports'],
+  pkg: string | undefined,
+): FileRefs['callers'] {
+  const typeDecls = collectTypeDecls(language, tree);
+  const topLevel = collectTopLevelTypeNames(language, tree);
+  const innerTypes = collectInnerClassTypeNames(language, tree);
+  const refs = refCollector();
+
+  /**
+   * How a type name may be claimed: same-file types bare, inner-class
+   * types never (their methods are not symbols — shape B), imported
+   * types against the FQCN (resolveImport settles repo vs external),
+   * everything else the same-package form — the caller's own package
+   * path when declared (`com/google/gson/JsonParser.java` resolves
+   * across main/test source roots by unique suffix), `./Name.java` as
+   * the default-package fallback (exact directory, resolveImport).
+   */
+  function typeClaim(typeName: string): { bare?: boolean; source?: string; samePackage?: string } | undefined {
+    if (innerTypes.has(typeName)) return undefined;
+    if (topLevel.has(typeName)) return { bare: true };
+    const binding = imports[typeName];
+    if (binding?.kind === 'named') return { source: binding.source };
+    return { samePackage: pkg ? `${pkg}/${typeName}.java` : `${typeName}.java` };
+  }
+
+  /**
+   * How a member call on this receiver may be claimed, per the rule
+   * above; undefined when the receiver names nothing of ours. Java
+   * cannot distinguish an undeclared variable from an explicit class
+   * name, so both go through the type claim — the same-package form
+   * resolves only where a uniquely-named file backs it.
+   */
+  function memberClaim(object: SyntaxNode): { bare?: boolean; source?: string; samePackage?: string } | undefined {
+    if (object.type === 'this') return { bare: true };
+    let typeName: string | undefined;
+    if (object.type === 'field_access') {
+      // `Type.CONSTANT.method()` — the value names the type or enum holder
+      const value = object.childForFieldName('object');
+      typeName = value?.type === 'identifier' ? value.text : undefined;
+    } else if (object.type === 'identifier') {
+      // a declared variable resolves through its declared type; an
+      // undeclared identifier can only be an explicit class name
+      typeName = typeDecls.get(object.text) ?? object.text;
+    }
+    return typeName ? typeClaim(typeName) : undefined;
+  }
+
+  for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
+    const invocation = captures.find((c) => c.name === 'invocation')?.node;
+    if (invocation) {
+      const callee = captures.find((c) => c.name === 'callee')?.node;
+      const object = invocation.childForFieldName('object');
+      const name = callee?.text;
+      if (!callee || !name) continue;
+      if (!object) {
+        refs.note(callerOf(callee), name); // bare call
+        continue;
+      }
+      const claim = memberClaim(object);
+      if (!claim) continue;
+      // an explicit import owns its name — a member claim never
+      // overwrites it (the claimCollector policy, #26): overwriting
+      // would point the bare call at the wrong module's symbol. The
+      // call itself is still recorded — every caller that invokes the
+      // name deserves the edge the claim resolves.
+      if (!(name in imports)) {
+        if (claim.source) imports[name] = { kind: 'named', imported: name, source: claim.source };
+        else if (claim.samePackage)
+          imports[name] = { kind: 'same-package', imported: name, source: claim.samePackage };
+      }
+      refs.note(callerOf(callee), name);
+      continue;
+    }
+    const node =
+      captures.find((c) => c.name === 'callee')?.node ??
+      captures.find((c) => c.name === 'scoped')?.node;
+    if (!node) continue;
+    const name = node.type === 'scoped_type_identifier' ? finalTypeSegment(node) : node.text;
+    if (!name) continue;
+    refs.note(callerOf(node), name);
+  }
+  return refs.finish();
 }
 
 function makeRecord(
@@ -226,7 +418,7 @@ export function createJavaExtractor(): Extractor {
       }
       return records;
     },
-    async extractRefs(code) {
+    async extractRefs(code, file) {
       const { language, tree } = await parseTree(code);
       if (!tree) return noRefs();
 
@@ -239,25 +431,29 @@ export function createJavaExtractor(): Extractor {
         if (binding) imports[binding[0]] = binding[1];
       }
 
-      const refs = refCollector();
-      for (const { captures } of new Query(language, REF_QUERY).matches(tree.rootNode)) {
-        const node =
-          captures.find((c) => c.name === 'callee')?.node ??
-          captures.find((c) => c.name === 'scoped')?.node;
-        if (!node) continue;
-        const name = node.type === 'scoped_type_identifier' ? finalTypeSegment(node) : node.text;
-        if (!name) continue;
-        refs.note(callerOf(node), name);
-      }
-      return { imports, callers: refs.finish() };
+      const pkg = readPackagePath(language, tree);
+      return { imports, callers: readCalls(language, tree, imports, pkg) };
     },
     resolveImport(_file, binding, index) {
-      if (binding.kind !== 'named') return undefined;
-      const matches = index.matching(binding.source);
+      if (binding.kind !== 'named' && binding.kind !== 'same-package') return undefined;
+      const { imported, source } = binding;
+      if (binding.kind === 'same-package') {
+        // a receiver-type claim whose type has no import: try the
+        // package-path suffix first, then the bare file name — a repo
+        // may lay one package across source roots (main/test, #41)
+        for (const candidate of [source, path.posix.basename(source)]) {
+          const matches = index.matching(candidate);
+          if (matches.length === 1) {
+            return index.at(matches[0])?.includes(imported)
+              ? symbolId(matches[0], imported)
+              : undefined;
+          }
+        }
+        return undefined;
+      }
+      const matches = index.matching(source);
       if (matches.length !== 1) return undefined; // external, or ambiguous across package roots
-      return index.at(matches[0])?.includes(binding.imported)
-        ? symbolId(matches[0], binding.imported)
-        : undefined;
+      return index.at(matches[0])?.includes(imported) ? symbolId(matches[0], imported) : undefined;
     },
   };
 }

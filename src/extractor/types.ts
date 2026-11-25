@@ -66,10 +66,15 @@ export interface SymbolRecord {
  * One import binding as the language layer extracted it. `named` carries
  * the imported name; `default` is the module's default export — claimed
  * but unresolvable by name, so the cascade must not fall through.
+ * `same-package` is a receiver-type claim whose type has no import (#41):
+ * the language guesses the type lives beside it, and resolution tries
+ * the package-path suffix first, then falls back to the bare file name —
+ * a repo may lay the same package across source roots.
  */
 export type ImportBinding =
   | { kind: 'named'; imported: string; source: string }
-  | { kind: 'default'; source: string };
+  | { kind: 'default'; source: string }
+  | { kind: 'same-package'; imported: string; source: string };
 
 /**
  * The index probe the core hands a language's `resolveImport`: lookup by
@@ -91,11 +96,11 @@ export interface ImportIndex {
  */
 export interface FileRefs {
   /**
-   * Local import bindings: local name → what it imports and from where.
-   * A namespace import itself is not a binding; a member call through
-   * one (`ns.fn()`) is reported as a named claim on the module's source
-   * (#26) — the only member-call shape a language may report when its
-   * methods are not symbols.
+   * The file's claim table: import-statement bindings, plus the claims
+   * a language's member-call rules synthesize (a namespace member call
+   * on the module's source, #26; a Java receiver-type claim, #41). The
+   * cascade resolves each claimed name through it and never falls
+   * through to same-file or global guesses on an unresolved claim.
    */
   imports: Record<string, ImportBinding>;
   /**

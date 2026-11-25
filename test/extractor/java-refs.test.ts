@@ -133,4 +133,146 @@ describe('Java extractor — resolveImport (ADR-0005)', () => {
     // matched file lacks the name → no edge
     expect(resolve({ kind: 'named', imported: 'Ifc', source: 'demo/other/Ifc.java' })).toBeUndefined();
   });
+
+  it('a same-package claim resolves by package path, then by bare file name (#41)', () => {
+    const files = ['src/main/java/demo/Peer.java', 'src/other/Arrays.java'];
+    const index: ImportIndex = {
+      at: (file) =>
+        ({ 'src/main/java/demo/Peer.java': ['peerMethod'], 'src/other/Arrays.java': ['asList'] })[file],
+      matching: (suffix) => files.filter((p) => p === suffix || p.endsWith(`/${suffix}`)),
+    };
+    const extractor = createJavaExtractor();
+    // the package-path suffix settles it first
+    expect(
+      extractor.resolveImport!(
+        'src/main/java/demo/Greeter.java',
+        { kind: 'same-package', imported: 'peerMethod', source: 'demo/Peer.java' },
+        index,
+      ),
+    ).toBe('src/main/java/demo/Peer.java#peerMethod');
+    // one package laid across source roots: the package path misses, the
+    // bare file name (unique) still finds it
+    expect(
+      extractor.resolveImport!(
+        'src/main/java/demo/Greeter.java',
+        { kind: 'same-package', imported: 'asList', source: 'demo/Arrays.java' },
+        index,
+      ),
+    ).toBe('src/other/Arrays.java#asList');
+    // ambiguity anywhere resolves nothing
+    const twoPeers: ImportIndex = {
+      ...index,
+      matching: (suffix) =>
+        ['src/main/java/demo/Peer.java', 'src/test/java/demo/Peer.java'].filter(
+          (p) => p === suffix || p.endsWith(`/${suffix}`),
+        ),
+    };
+    expect(
+      extractor.resolveImport!(
+        'src/main/java/demo/Greeter.java',
+        { kind: 'same-package', imported: 'peerMethod', source: 'demo/Peer.java' },
+        twoPeers,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('Java extractor — receiver-type rule (ADR-0004 amendment, #41)', () => {
+  const CODE = `package demo;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+class Helper {
+  void acquire() {}
+}
+
+public class Greeter {
+  private Helper helper = new Helper();
+  private List<String> names = List.of();
+
+  void callsField() {
+    helper.acquire();               // declared Helper, same-file top-level → claimed
+  }
+
+  void callsParam(Helper param) {
+    param.acquire();                // declared param type → claimed
+  }
+
+  void callsSet(List<String> set) {
+    set.add("x");                   // List is a JDK import — claimed against the FQCN, resolves nothing
+  }
+
+  void callsThis() {
+    this.callsField();              // this receiver → claimed
+  }
+
+  void callsJdkStatic() {
+    TimeUnit.SECONDS.toMillis(1);   // TimeUnit is an import — resolves nothing
+  }
+
+  void callsChain() {
+    helper.acquire().toString();    // the chained tail's receiver is a call → not reported
+  }
+
+  class Impl {
+    void createAdapter() {}
+  }
+
+  void callsInner(Impl impl) {
+    impl.createAdapter();           // Impl is an inner class, not a top-level type → not reported
+  }
+}
+`;
+
+  /** callers view with deterministic ordering, imports as a plain object. */
+  function view(refs: { callers: Record<string, string[]> }): Record<string, string[]> {
+    const callers: Record<string, string[]> = Object.create(null);
+    for (const [caller, callees] of Object.entries(refs.callers)) callers[caller] = [...callees].sort();
+    return callers;
+  }
+
+  it('claims member calls whose receiver type is a same-file top-level symbol', async () => {
+    const callers = view(await createJavaExtractor().extractRefs!(CODE, 'src/main/java/demo/Greeter.java'));
+    expect(callers.callsField).toEqual(['acquire']);
+    expect(callers.callsParam).toEqual(['acquire']);
+    expect(callers.callsThis).toEqual(['callsField']);
+  });
+
+  it('claims same-package explicit-class statics through the package form (#41)', async () => {
+    // Peer has no import (same package) and lives outside this file: the
+    // claim lands on the caller's package path, so resolveImport settles
+    // it by unique suffix across source roots
+    const code = `package demo;
+
+public class Greeter {
+  void callsPeer() {
+    Peer.peerMethod();
+  }
+}
+`;
+    const refs = await createJavaExtractor().extractRefs!(code, 'src/main/java/demo/Greeter.java');
+    expect(view(refs).callsPeer).toEqual(['peerMethod']);
+    expect(refs.imports.peerMethod).toEqual({
+      kind: 'same-package',
+      imported: 'peerMethod',
+      source: 'demo/Peer.java',
+    });
+  });
+
+  it('does not claim JDK-typed, inner-classed or chained receivers — missing edges, never false ones', async () => {
+    const refs = await createJavaExtractor().extractRefs!(CODE, 'src/main/java/demo/Greeter.java');
+    const callers = view(refs);
+    // set.add: List is a JDK import — the claim lands on the FQCN and resolves nothing
+    expect(callers.callsSet).toEqual(['add']);
+    expect((refs.imports.add as { source: string }).source).toBe('java/util/List.java');
+    // Impl is an inner class — not a top-level type, not an import: no claim at all
+    expect(callers.callsInner).toBeUndefined();
+    // the chained tail's receiver is a call result — no claim
+    expect(callers.callsChain).toEqual(['acquire']);
+    expect(callers.callsChain).not.toContain('toString');
+    // TimeUnit.SECONDS: the claim lands on the JDK FQCN and resolves nothing
+    expect(callers.callsJdkStatic).toEqual(['toMillis']);
+    expect((refs.imports.toMillis as { source: string }).source).toBe('java/util/concurrent/TimeUnit.java');
+  });
 });

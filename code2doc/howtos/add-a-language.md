@@ -26,7 +26,7 @@ order:
    constructors), what public means in that language, and where the
    signature ends and the body begins. References:
    [createTsExtractor](../../src/extractor/ts.ts "c2d:src/extractor/ts.ts#createTsExtractor:897c7bab7910f380.b44f82a71af16ccb"),
-   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:794c96c564860aec.7519b6c000146bf7") and
+   [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:794c96c564860aec.001f6fd3868bea12") and
    [createPythonExtractor](../../src/extractor/python.ts "c2d:src/extractor/python.ts#createPythonExtractor:d00c18b05bf88627.302e4a29c0d897c1").
 
 4. **Register it.** Append the factory's instance to the registry list

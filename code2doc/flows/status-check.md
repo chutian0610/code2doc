@@ -8,9 +8,9 @@ only the printing differs.)
    starts in [loadConfig](../../src/config.ts "c2d:src/config.ts#loadConfig:87899fbd6eb20c86.a928605a0e3983f7"); no config file is
    a tool failure ("run `code2doc init` first"), never a signal.
 
-2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:44a4ee3dd8d89493.9dcbeb02120ffbb1") globs the
+2. **Refresh the index.** [scan](../../src/cache.ts "c2d:src/cache.ts#scan:44a4ee3dd8d89493.0bb50ee8e7bd0081") globs the
    config's scope and parses every file whose content hash differs from
-   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:d199be599b896a44.9df0f80a9be8a607") had — unchanged files keep
+   what [loadCache](../../src/cache.ts "c2d:src/cache.ts#loadCache:d199be599b896a44.f4a1776299b95edc") had — unchanged files keep
    their cached symbols, so a fresh clone and a warm one reach the same
    state. [saveCache](../../src/cache.ts "c2d:src/cache.ts#saveCache:5f6e581b2336294e.1d26fc3a62332338") persists it; the cache
    is derived state, safe to delete and rebuild.
@@ -27,7 +27,7 @@ only the printing differs.)
    resolves each against the fresh index — symbol gone or signature
    changed → Broken, body changed → Drift, match → fresh. An anchor
    that is itself fresh is then checked for **Ripple** (ADR-0004):
-   [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:13b5e4b33c6eaa21.8eb8d28601fd8d41") builds the call graph
+   [resolveEdges](../../src/ripple.ts "c2d:src/ripple.ts#resolveEdges:13b5e4b33c6eaa21.759b18a3111a605a") builds the call graph
    from the *previous* cache (the graph as of the last status, so a
    deleted callee still ripples its caller),
    [changedSince](../../src/ripple.ts "c2d:src/ripple.ts#changedSince:d871e26c5986a3b2.ff5de7d8e66e5d60") diffs the two caches,

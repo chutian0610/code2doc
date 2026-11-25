@@ -12,7 +12,7 @@ a language id, claimed file extensions, `extract` returning
 optional `extractRefs` returning
 [FileRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#FileRefs:cba8203c76dd5d9e.cba8203c76dd5d9e") and optional
 `resolveImport` (ADR-0005) resolving one
-[ImportBinding](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportBinding:92bbcc8338ba4015.92bbcc8338ba4015") — named or
+[ImportBinding](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportBinding:ab8318c09ae3877c.ab8318c09ae3877c") — named or
 default — against the [ImportIndex](../../src/extractor/types.ts "c2d:src/extractor/types.ts#ImportIndex:ccc678625a5e3764.ccc678625a5e3764")
 probe the core hands in. Both v2 languages implement both; a language
 without them produces no edges and no Ripple. A record's stable
@@ -84,18 +84,28 @@ the call goes to the argument, and resolving it to the same-spelled
 import would be a false edge; a nested arrow closing over the outer
 parameter is checked layer by layer for the same reason.
 
-[createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:794c96c564860aec.7519b6c000146bf7")
+[createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:794c96c564860aec.001f6fd3868bea12")
 mirrors it on tree-sitter-java: top-level types plus their direct
 methods (constructors excluded — their name is the class's and would
 collide in `file#name` lookup); only `public` is public, with interface
 members implicitly public per the language rule. Its `extractRefs`
-captures any method invocation by its name field, construction and
-heritage, attributing calls to the enclosing top-level method (methods
-are symbols here) and heritage to the class; imports normalize to
-package-path form (`demo/other/Base.java`), with wildcards claiming no
-name. Its `resolveImport` matches a package path against indexed files
-by unique suffix — whatever the package root — so external libraries
-resolve nothing.
+captures bare calls, construction and heritage without conditions; a
+member call reports only when its receiver's type names a repo symbol
+(#41 — same-file top-level types bare, imported types against the FQCN,
+other type names as a same-package claim settled by the package-path
+suffix, falling back to the uniquely-named file when one package is
+laid across source roots), because a method invoked on a JDK or library
+object shares its name with whichever repo method happens to be globally
+unique — field-measured at ~14% false on three real repos. Imports
+normalize to package-path form (`demo/other/Base.java`), with wildcards
+claiming no name; the imports table is the cascade's claim table —
+member-call claims land beside the import-statement ones, and a claim
+never overwrites an explicit import. Its `resolveImport` matches a
+package path against indexed files by unique suffix — whatever the
+package root — so external libraries resolve nothing. Blind spots this
+buys: chained call tails (`a.b().c()`), receivers whose type is only
+knowable through inheritance, and undeclared receivers that share no
+name with an indexed file are not detected.
 
 ## `python.ts` — the third language
 
