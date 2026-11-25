@@ -8,8 +8,8 @@ import type { Sym } from './helpers.js';
  * The full Operator flow — init, anchored module page, Drift / Broken /
  * Missing signals, exit codes — run identically against the TS/JS,
  * Java and Python fixtures (T5: languages join at parity by sharing this
- * exact black-box structure, not by imitation). The ripple step runs only
- * where the language extracts call edges yet.
+ * exact black-box structure, not by imitation). The ripple step runs for
+ * every language; the chain travels the import shape of its own fixture.
  */
 
 interface SourceEdits {
@@ -123,7 +123,15 @@ const FIXTURES: ParityFixture[] = [
     fixture: path.join(repoRoot, 'test/fixtures/sample-python'),
     sourceFile: 'src/greet.py',
     editedSymbol: 'greet',
-    ripple: false,
+    // the chain runs through a Python import: _resolve calls the class
+    // through a namespace binding (import greet → greet.Greeter(...))
+    ripple: {
+      chainCaller: '_resolve',
+      chainCallerFile: 'src/helper.py',
+      chainCallee: 'src/greet.py#Greeter',
+      chainCalleeFile: 'src/greet.py',
+      calleeBodyOnly: (src) => src.replace('self.prefix = prefix', 'self.prefix = prefix + " "'),
+    },
     publicKinds: { MOTTO: 'variable', greet: 'function', Greeter: 'class' },
     filesScanned: 2,
     modulePublics: ['MOTTO', 'greet', 'Greeter'],

@@ -31,6 +31,7 @@ counts for the Missing signal.
 - [noRefs](../../src/extractor/types.ts "c2d:src/extractor/types.ts#noRefs:90406e54aebd10fa.f0e9c13c08ddec65") — the empty ref table
 - [collapseCallers](../../src/extractor/types.ts "c2d:src/extractor/types.ts#collapseCallers:87b6bbd2957e866c.e935194304b10e9e") — shared, deterministic caller-map normalization (Map in, prototype-less record out: caller names are arbitrary identifiers, and `toString`/`__proto__` must stay plain keys), also the baseline for languages without edge extraction
 - [refCollector](../../src/extractor/types.ts "c2d:src/extractor/types.ts#refCollector:7af9d20572df3cca.d16684feeee3ed80") — the accumulator every extractor feeds (`note` during the walk, `finish` for the record); one home for the Map-in/prototype-less-out policy so adapters cannot drift on it again
+- [claimCollector](../../src/extractor/types.ts "c2d:src/extractor/types.ts#claimCollector:bab926b94086ec69.f12263bd6c74338a") — the import-bindings-plus-namespace-probe accumulator member calls resolve through (#26); a member-call claim never overwrites an explicit from-import of the same name — the overwrite would point the bare call at the wrong module's symbol, so the member call yields instead
 
 ## `fingerprint.ts` — the parity machinery
 
@@ -94,7 +95,7 @@ resolve nothing.
 
 ## `python.ts` — the third language
 
-[createPythonExtractor](../../src/extractor/python.ts "c2d:src/extractor/python.ts#createPythonExtractor:d00c18b05bf88627.0458c0be0a08b22a")
+[createPythonExtractor](../../src/extractor/python.ts "c2d:src/extractor/python.ts#createPythonExtractor:d00c18b05bf88627.302e4a29c0d897c1")
 mirrors the contract on tree-sitter-python: module-level `def`/`class`
 targets plus UPPER_CASE assignments (the constants convention, kind:
 variable) are the symbols — methods, nested defs, `if`-guarded blocks
@@ -105,8 +106,21 @@ adding or removing one is an interface change — and only `#` line
 comments are comments: a docstring is body, so editing one drifts a
 claim instead of breaking it. A same-name redefinition is one record
 per declaration, set-compared downstream under its name key (ADR-0006).
-Its `extractRefs`/`resolveImport` pair is not written yet: until the
-import-resolution work lands, Python files produce no call edges and no
-Ripple — no edge beats a false edge (ADR-0004).
+Its call refs attribute bare calls to the enclosing module-level def or
+constant initializer; a member call reports a name only through a
+namespace binding (`import greet`, then `greet.Greeter(...)` — the one
+member-call shape a language without method symbols may report, #26).
+Import resolution is Python's own (ADR-0005): dotted paths match by
+unique suffix whatever the package root, a regular package
+(`pkg/__init__.py`) shadows a same-named `pkg.py`, from-imports claim
+symbol-first against the module with the submodule path held for member
+calls, and relative dot forms resolve exactly against the file's own
+directory. Blind spots, all documented: star imports and dynamic
+imports claim nothing; decorator expressions and `super()` chains name
+no caller; a dotted member chain deeper than one binding (`ns.deep.map()`)
+stops; `import pkg.mod` binds the dotted name, so a sibling reached as
+`pkg.sibling` stops too; a call shadowed by a parameter of its def
+reports nothing, and a name rebound inside a def body is undetected —
+both shapes call the runtime binding, not the claim.
 
 Back to the [overview](../overview.md).
