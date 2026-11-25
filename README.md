@@ -36,6 +36,7 @@ agent](#with-an-ai-agent).
 | TypeScript / TSX | `.ts` `.tsx`               |
 | JavaScript / JSX | `.js` `.jsx` `.mjs` `.cjs` |
 | Java             | `.java`                    |
+| Python           | `.py`                      |
 
 Adding a language is one extractor plus tests — [the
 how-to](code2doc/howtos/add-a-language.md) walks through it.
@@ -60,7 +61,7 @@ tool checks it. Two design rules do most of the work:
   the fingerprint. An anchor looks like this in a page:
 
   ```markdown
-  [runStatus](../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.d9b570fa2b8e8d3a")
+  [runStatus](../src/commands/status.ts "c2d:src/commands/status.ts#runStatus:0741c9365da1f37f.165c5277f56aa760")
   checks every declared page against the code as it stands.
   ```
 
@@ -80,7 +81,7 @@ stands and reports:
 | Signal   | Meaning                                                        | Action            |
 | -------- | -------------------------------------------------------------- | ----------------- |
 | Broken   | Anchored symbol gone, or its signature changed                 | Rewrite the claim |
-| Drift    | Symbol exists, signature same, body changed                    | Review; refresh the fingerprint if the claim still holds |
+| Drift    | Symbol exists, signature same, body changed                    | Review; `code2doc refresh` if the claim still holds |
 | Ripple   | The anchor is fresh but a symbol it calls went stale since the last `status` | Follow `via` to the change; most ripples need nothing |
 | Missing  | A module's public symbol with no anchor on its module page     | Document it       |
 
@@ -110,7 +111,12 @@ Doc-to-doc links are checked too: a page renamed without its inbound
 links is Broken, like any stale claim.
 
 Exit codes: `0` all accurate, `1` Drift or Ripple, `2` any Broken or
-Missing — so CI (or the agent itself) can gate on severity.
+Missing — so CI (or the agent itself) can gate on severity. `3` is
+reserved for tool failure, keeping report semantics unpolluted.
+`--fail-on <classes>` contracts the gate to the listed classes
+(`broken,drift,ripple,missing`, or `all` — the default): `status
+--fail-on broken` lets a young tree accumulate drift while CI still
+blocks on Broken claims.
 
 ## With an AI agent
 

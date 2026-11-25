@@ -106,7 +106,10 @@ Run `status` before finishing any task that touched code:
   over after "signature changed" means the fingerprint named a later
   Java overload — paste the given one (first-declaration rule).
 - **Drift** — the symbol's body changed. Check whether the claim still
-  holds: if yes, refresh the fingerprint; if no, rewrite first.
+  holds: if yes, refresh the fingerprint (`code2doc refresh` re-signs
+  every reviewed-drift anchor in one pass and refuses signature changes
+  and vanished symbols — those are rewrites, never refreshes); if no,
+  rewrite first.
 - **Ripple** — the anchored symbol itself is untouched, but something
   it calls went stale since the last status. Review recommended, not a
   rewrite: follow `via` to the stale callee named in the drill-down,

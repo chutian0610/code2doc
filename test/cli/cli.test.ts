@@ -33,6 +33,8 @@ describe('code2doc CLI', () => {
     for (const ext of claimedExtensions()) {
       expect(config.include.join(' ')).toContain(ext.slice(1));
     }
+    // Python's claim is pinned by name, not only through the loop above (#34)
+    expect(claimedExtensions()).toContain('.py');
   });
 
   it('init reports discovered modules and public symbols as JSON', () => {
@@ -76,11 +78,12 @@ describe('code2doc CLI', () => {
 
   it('skips files whose language has no extractor, via the include config', () => {
     const dir = copyFixture(tsFixture, 'code2doc-');
+    // a language the registry does not claim, parked in include scope
+    writeFileSync(path.join(dir, 'src', 'notes.boom'), 'boom', 'utf8');
     run(['init'], dir);
-    // widen include past the registry: the .py fixture must be skipped
     const configFile = path.join(dir, 'code2doc.config.json');
     const config = JSON.parse(readFileSync(configFile, 'utf8'));
-    config.include = ['**/*.{ts,tsx,js,jsx,mjs,cjs,java}', '**/*.py'];
+    config.include = [...config.include, '**/*.boom'];
     writeFileSync(configFile, JSON.stringify(config, null, 2), 'utf8');
 
     const { stdout } = run(['init'], dir);
@@ -139,5 +142,26 @@ describe('code2doc CLI', () => {
     expect(code).toBe(3);
     expect(stdout).toBe('');
     expect(stderr).toMatch(/JSON at position/); // the cause, on stderr, never in a report
+  });
+
+  it('status rejects unknown flags and stray arguments loudly (exit 3)', () => {
+    const dir = copyFixture(tsFixture, 'code2doc-');
+    run(['init'], dir);
+
+    // a typo'd flag would silently change what gets checked — never that
+    const typo = run(['status', '--jsn'], dir);
+    expect(typo.code).toBe(3);
+    expect(typo.stderr).toMatch(/unknown flag "--jsn"/);
+
+    const stray = run(['status', 'drift'], dir);
+    expect(stray.code).toBe(3);
+    expect(stray.stderr).toMatch(/unexpected argument "drift"/);
+  });
+
+  it('init takes no flags', () => {
+    const dir = copyFixture(tsFixture, 'code2doc-');
+    const { code, stderr } = run(['init', '--json'], dir);
+    expect(code).toBe(3);
+    expect(stderr).toMatch(/init takes no flags/);
   });
 });

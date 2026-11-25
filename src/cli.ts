@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { runInit } from './commands/init.js';
+import { runRefresh } from './commands/refresh.js';
 import { runStatus } from './commands/status.js';
 
 // Exit codes: 0 clean, 1 Drift or Ripple, 2 any Broken/Missing (report
@@ -10,11 +11,18 @@ async function main(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv;
   switch (cmd) {
     case 'init':
+      if (rest.length > 0) {
+        throw new Error(`unexpected argument "${rest[0]}" — init takes no flags`);
+      }
       return runInit(process.cwd());
     case 'status':
       return runStatus(process.cwd(), rest);
+    case 'refresh':
+      return runRefresh(process.cwd(), rest);
     default:
-      console.error('usage: code2doc <init|status> [--json]');
+      console.error(
+        'usage: code2doc <init> | code2doc status [--json] [--fail-on <classes>] | code2doc refresh [--json]',
+      );
       return EXIT_FAILURE;
   }
 }
