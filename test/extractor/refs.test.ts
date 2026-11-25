@@ -195,6 +195,41 @@ module.exports = { fn };
     expect(Object.keys(imports)).toHaveLength(0);
   });
 
+  it('a call shadowed by a parameter reports nothing — the argument is called, not the name (#38)', async () => {
+    // resolving helper() to helper.ts#helper would be a false edge: at
+    // runtime the call goes to whatever the caller passed in — through a
+    // nested arrow just as much as directly, and from a function
+    // expression or the second declarator just as much as the first. A
+    // member call is unaffected — property access, not a name lookup.
+    const code = `import { helper } from './helper';
+
+export function caller(helper: () => string): string {
+  const wrap = () => helper();
+  return wrap();
+}
+
+export function callee(): string {
+  return helper();
+}
+
+export const arrow = (helper: () => string): string => helper();
+
+export const fnExpr = function (helper: () => string): string {
+  return helper();
+};
+
+export const first = (a: number): number => a, second = (helper: () => string): string => helper();
+`;
+    const { callers } = view(await createTsExtractor().extractRefs!(code, 'src/greet.ts'));
+    // helper is gone everywhere it is shadowed; the wrap() call stays —
+    // a real call to a non-symbol, dropped by the cascade downstream
+    expect(callers.caller).toEqual(['wrap']);
+    expect(callers.arrow).toBeUndefined();
+    expect(callers.fnExpr).toBeUndefined();
+    expect(callers.second).toBeUndefined();
+    expect(callers.callee).toEqual(['helper']); // the unshadowed caller keeps its claim
+  });
+
   it('a member call on a namespace import becomes a named claim on the module (#26)', async () => {
     // the one member-call shape that points at our own symbols: `ns.fn()`
     // where ns names a whole imported module. Claimed to the module's

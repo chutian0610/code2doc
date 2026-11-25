@@ -78,7 +78,11 @@ claims like imports (#25): a destructured require yields named
 bindings, a whole-module require a default one — the claimed name never
 falls through, so requiring an external package that shares a name with
 a repo symbol mints no false edge; relative sources resolve through the
-same `resolveImport` machinery as ESM.
+same `resolveImport` machinery as ESM. A bare call shadowed by a
+parameter of any function wrapping it reports nothing (#38) — at runtime
+the call goes to the argument, and resolving it to the same-spelled
+import would be a false edge; a nested arrow closing over the outer
+parameter is checked layer by layer for the same reason.
 
 [createJavaExtractor](../../src/extractor/java.ts "c2d:src/extractor/java.ts#createJavaExtractor:794c96c564860aec.7519b6c000146bf7")
 mirrors it on tree-sitter-java: top-level types plus their direct

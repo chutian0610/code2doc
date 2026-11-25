@@ -204,6 +204,39 @@ function callerNameOf(decl: SyntaxNode, sawClassBody: boolean): string | undefin
   return undefined;
 }
 
+/** The function-like nodes that own a parameter list. */
+const FUNCTION_LIKE = new Set([
+  'function_declaration',
+  'function_expression',
+  'arrow_function',
+  'function_signature',
+  'method_definition',
+  'generator_function_declaration',
+]);
+
+/**
+ * True when the called name is a parameter of any function wrapping the
+ * call site. Every layer on the climb must be checked before the name
+ * resolves to the import or global of the same spelling — that resolve
+ * is the false edge ADR-0004 forbids (#38, Python's rule in #35): a
+ * nested arrow closing over the outer parameter still calls the
+ * argument, and a function expression or the second declarator carries
+ * parameters just as much as the first. Type-annotation identifiers
+ * land in the set too — conservative, the missing-edge direction. A
+ * member call is a property access, not a name lookup, so it never
+ * checks this. Python checks only its innermost def because its
+ * callerOf refuses to climb out of a nested def; this climb
+ * attributes through one.
+ */
+function shadowedByParameter(site: SyntaxNode, name: string): boolean {
+  for (let cur = site.parent; cur; cur = cur.parent) {
+    if (!FUNCTION_LIKE.has(cur.type)) continue;
+    const params = cur.childForFieldName('parameters');
+    if (params?.descendantsOfType('identifier').some((p) => p.text === name)) return true;
+  }
+  return false;
+}
+
 /** Grammar kind for a file extension (`.tsx`/`.jsx` use the tsx grammar). */
 function grammarFor(file: string): 'typescript' | 'tsx' {
   const ext = path.extname(file).toLowerCase();
@@ -302,6 +335,7 @@ function readCalls(language: Language, tree: Tree, claims: ReturnType<typeof cla
     }
     const callee = captures.find((c) => c.name === 'callee')?.node;
     if (!callee) continue;
+    if (shadowedByParameter(callee, callee.text)) continue;
     refs.note(callerOf(callee), callee.text);
   }
   return refs.finish();
