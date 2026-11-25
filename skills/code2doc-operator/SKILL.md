@@ -13,7 +13,10 @@ broke, drifted or were never written. Your job is to keep that report
 green; the tool's job is to make staleness impossible to miss.
 
 The CLI is `code2doc` (run via `npx @chutian0610/code2doc` when not
-installed). Two commands, nothing else: `init` and `status`.
+installed). Three commands: `init` (index + report), `status` (verify
+every anchor), `refresh` (re-sign reviewed Drift — ADR-0007). A worked,
+imitable transcript of the whole loop ships with this skill — read
+`transcript.md` next to this file.
 
 ## Vocabulary
 
@@ -67,6 +70,9 @@ declares it:
 Only declare pages you will actually write. A skeleton first: manifest
 entries, then the files.
 
+Prompt template for the first tree (the one sentence that starts it
+all): *"Follow SKILL.md: document this repo, smallest module first."*
+
 ### 3. Write anchored pages
 
 Copy fingerprints from the init report's `symbols` array (re-run `init`
@@ -96,7 +102,11 @@ derived state, ignored and rebuildable).
 
 ### 5. Maintain after code changes
 
-Run `status` before finishing any task that touched code:
+Run `status` before finishing any task that touched code. Prompt
+template when handing the task to the agent: *"Run `code2doc status`
+and clear the signals before you finish."* In CI, one step —
+`npx @chutian0610/code2doc status` — fails the build on any signal
+(`--fail-on <classes>` narrows the gate).
 
 - **Broken** — the claim is likely wrong. Rewrite it against the new
   code, then update the anchor's fingerprint (re-run `init` for the new
@@ -136,7 +146,8 @@ Distill it:
 4. `status` green, commit.
 
 A how-to ages under the same rules as everything else — when the code
-it describes moves, the page says so loudly. That is the point.
+it describes moves, the page says so loudly. That is the point. Prompt
+template: *"Save that as a howto."*
 
 ### 7. Load the tree, don't re-derive it
 
